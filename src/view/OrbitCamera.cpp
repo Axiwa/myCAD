@@ -110,7 +110,7 @@ void OrbitCamera::fitToBbox(const Bbox& bbox){
         float aspect = (float)viewWidth_ / viewHeight_;
         tanfov = tanfov * aspect;
     }
-    float sinfov = tanfov / std::sqrt(1 / (1 + tanfov * tanfov));
+    float sinfov = tanfov / std::sqrt(1 + tanfov * tanfov);
     distance_ = radius / sinfov * 1.2f;
 
     //far_ = distance_ + 2 * radius;

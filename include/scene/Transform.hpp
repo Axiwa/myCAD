@@ -13,10 +13,6 @@ public:
     void updateAsRoot();
     bool isDirty() const;
 
-    void rotateAroundLocal(const glm::dvec3& axis, float rad);
-    void rotateAround(const glm::dvec3& axis, float rad);
-    void translate(const glm::dvec3& vec);
-
 private:
     glm::dmat4 local_{1.0};
     glm::dmat4 world_{1.0};

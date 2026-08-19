@@ -26,13 +26,3 @@ void Transform::updateAsRoot(){
 bool Transform::isDirty() const{
     return dirty_;
 }
-
-void Transform::rotateAroundLocal(const glm::dvec3& axis, float rad){
-
-}
-void Transform::rotateAround(const glm::dvec3& axis, float rad){
-
-}
-void Transform::translate(const glm::dvec3& vec){
-    
-}

@@ -76,6 +76,8 @@ Controller::~Controller(){
     if (m_camera){
         delete m_camera;
     }
+
+    glfwTerminate();
 }
 
 bool Controller::update(){

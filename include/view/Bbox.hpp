@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/common.hpp>
 #include <glm/glm.hpp>
+#include "common/common.h"
 
 struct Bbox
 {
@@ -8,8 +9,8 @@ struct Bbox
     glm::vec3 maximum;
 
     Bbox() {
-        minimum = glm::vec3(1);
-        maximum = glm::vec3(-1);
+        minimum = glm::vec3(std::numeric_limits<float>::max());
+        maximum = glm::vec3(std::numeric_limits<float>::min());
     }
 
     glm::vec3 center() const{
@@ -22,8 +23,8 @@ struct Bbox
     }
 
     void reset() {
-        minimum = glm::vec3(1);
-        maximum = glm::vec3(-1);
+        minimum = glm::vec3(std::numeric_limits<float>::max());
+        maximum = glm::vec3(std::numeric_limits<float>::min());
     }
 
     void expand(const glm::vec3& point){
@@ -31,7 +32,11 @@ struct Bbox
         maximum = glm::max(point, maximum);
     }
 
-    bool valid() const{
-        return minimum.x < maximum.x && minimum.y < maximum.y && minimum.z < maximum.z;
+    bool valid() const{ // TODO: collapsed to point also OK now
+        return (
+            minimum.x <= maximum.x && minimum.y < maximum.y + EPSILONF && minimum.z < maximum.z + EPSILONF
+         || minimum.x < maximum.x + EPSILONF && minimum.y <= maximum.y && minimum.z < maximum.z + EPSILONF
+         || minimum.x < maximum.x && minimum.y < maximum.y && minimum.z < maximum.z + EPSILONF
+        );
     }
 };

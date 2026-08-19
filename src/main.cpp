@@ -311,6 +311,8 @@ int main(){
     modeltrs.setLocalMatrix(ToGLMTransform(shapetransform));
     modeltrs.updateAsRoot();
     glm::mat4 model = modeltrs.worldMatrix();
+    
+    model = glm::scale(model, glm::vec3(2.0f, 1.0f, 1.0f));
     model = glm::translate(model, glm::vec3(-0.5f, -0.5f, -0.5f));
 
     // TODO: move object to center
@@ -326,6 +328,8 @@ int main(){
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glEnable(GL_DEPTH_TEST);
+    bool isPressed = false;
+    bool wasPressed = false;
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
@@ -351,14 +355,14 @@ int main(){
         glDrawArrays(GL_TRIANGLES, 0, vertices.size());
         //glBindVertexArray(0);
 
-        if (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS) {
+        isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
+        if (isPressed && !wasPressed) {
             myWindow.GetCamera()->fitToBbox(bbox);
         }
 
-        
+        wasPressed = isPressed;
         glfwSwapBuffers(myWindow.GetWindow());
     }
 
-    glfwTerminate();
     return 0;
 }

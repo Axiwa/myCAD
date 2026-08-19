@@ -17,9 +17,12 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "scene/Transform.hpp"
+#include "view/Controller.hpp"
+
 struct Vertex {
-    float position[3];
-    float normal[3];
+    glm::vec3 position;
+    glm::vec3 normal;
 };
 
 std::filesystem::path executableDirectory()
@@ -34,10 +37,6 @@ std::filesystem::path executableDirectory()
     }
     buffer.resize(length);
     return std::filesystem::path(buffer).parent_path();
-}
-
-void framebuffersize_callback(GLFWwindow* window, int width, int height){
-    glViewport(0, 0, width, height);
 }
 
 char* filetobuf(const char* file)
@@ -113,6 +112,33 @@ bool LoadShader(const char* vertfile, const char* fragfile, GLuint& vertshader, 
     return true;
 }
 
+gp_Trsf ToOcctTransform(const glm::dmat4& m) {
+    gp_Trsf T;
+    gp_Mat rot(
+        m[0][0], m[0][1], m[0][2],
+        m[1][0], m[1][1], m[1][2],
+        m[2][0], m[2][1], m[2][2]
+    );
+    
+    T.SetValues(
+        rot.Value(1, 1), rot.Value(1, 2), rot.Value(1, 3), m[3][0],
+        rot.Value(2, 1), rot.Value(2, 2), rot.Value(2, 3), m[3][1],
+        rot.Value(3, 1), rot.Value(3, 2), rot.Value(3, 3), m[3][2]
+    );
+
+    return T;
+}
+
+glm::dmat4 ToGLMTransform(const gp_Trsf& T) {
+    glm::dmat4 m(1.0);
+    for (int i = 1; i < 4; i++) {
+        for (int j = 1; j <= 4; j++) {
+            m[j - 1][i - 1] = T.Value(i, j);
+        }
+    }
+    return m;
+}
+
 int main(){
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -134,6 +160,8 @@ int main(){
         std::cerr << "Triangulation failed!" << std::endl;
         exit(1);
     }
+
+    gp_Trsf shapetransform = shape.Location().Transformation();
 
     for (TopExp_Explorer explorer(shape, TopAbs_FACE);
         explorer.More();
@@ -220,20 +248,11 @@ int main(){
         }
     }
 
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    Bbox bbox;
 
-    int width = 1024, height = 1024;
-    GLFWwindow* window = glfwCreateWindow(width, height, "helloCAD", nullptr, nullptr);
-    if (window == nullptr){
-        std::cerr<<"Create window failed!"<<std::endl;
-        glfwTerminate();
-        exit(1);
-    }
+    Controller myWindow;
+    glfwMakeContextCurrent(myWindow.GetWindow());
 
-    glfwMakeContextCurrent(window);
     // GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -241,11 +260,9 @@ int main(){
         exit(1);
     }
 
-    glfwSetFramebufferSizeCallback(window, framebuffersize_callback);
-
     GLuint program;
     program = glCreateProgram();
-    GLuint vertshader, fragshader;
+    GLuint vertshader = 0, fragshader = 0;
     std::string vertpath = executableDirectory().string() + "/shader/plain.vert";
     std::string fragpath = executableDirectory().string() + "/shader/plain.frag";
     LoadShader(vertpath.c_str(), fragpath.c_str(), vertshader, fragshader);
@@ -253,6 +270,23 @@ int main(){
     glAttachShader(program, vertshader);
     glAttachShader(program, fragshader);
     glLinkProgram(program);
+
+    glDeleteShader(vertshader);
+    glDeleteShader(fragshader);
+
+    int success;
+    int maxLength;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (success == GL_FALSE) {
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &maxLength);
+        char* progInfoLog;
+
+        progInfoLog = (char*)malloc(maxLength);
+        glGetProgramInfoLog(program, maxLength, &maxLength, progInfoLog);
+        std::cout << progInfoLog << std::endl;
+        free(progInfoLog);
+        return false;
+    }
 
     GLuint VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
@@ -273,15 +307,32 @@ int main(){
 
     glBindVertexArray(0);
 
-    glm::mat4 model = glm::mat4(1.0f);
+    Transform modeltrs;
+    modeltrs.setLocalMatrix(ToGLMTransform(shapetransform));
+    modeltrs.updateAsRoot();
+    glm::mat4 model = modeltrs.worldMatrix();
+    model = glm::translate(model, glm::vec3(-0.5f, -0.5f, -0.5f));
+
+    // TODO: move object to center
+    for (auto vert : vertices) {
+        glm::vec3 newvert = model * glm::vec4(vert.position, 1);
+        bbox.expand(newvert);
+    }
+
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 proj = glm::mat4(1.0f);
     view = glm::lookAt(glm::vec3(3,3,3), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-    proj = glm::perspective(glm::radians(45.0f), 1.0f, 0.1f, 100.0f);
+    
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    //glEnable(GL_DEPTH_TEST);
-    while(!glfwWindowShouldClose(window)){
+    glEnable(GL_DEPTH_TEST);
+    while(!glfwWindowShouldClose(myWindow.GetWindow())){
+        glfwPollEvents();
+
+        if (!myWindow.update()) {
+            glfwWaitEvents();
+            continue;
+        }
         glClearColor(0, 0, 0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -293,18 +344,21 @@ int main(){
         const GLint projectionLocation = glGetUniformLocation(program, "proj");
 
         glUniformMatrix4fv(modelLocation, 1, false, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLocation, 1, false, glm::value_ptr(view));
-        glUniformMatrix4fv(projectionLocation, 1, false, glm::value_ptr(proj));
+        glUniformMatrix4fv(viewLocation, 1, false, glm::value_ptr(myWindow.GetCamera()->viewMatrix()));
+        glUniformMatrix4fv(projectionLocation, 1, false, glm::value_ptr(myWindow.GetCamera()->projectionMatrix()));
 
         //glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
         glDrawArrays(GL_TRIANGLES, 0, vertices.size());
         //glBindVertexArray(0);
 
-        glfwPollEvents();
-        glfwSwapBuffers(window);
+        if (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS) {
+            myWindow.GetCamera()->fitToBbox(bbox);
+        }
+
+        
+        glfwSwapBuffers(myWindow.GetWindow());
     }
 
-    glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
 }

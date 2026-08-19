@@ -7,6 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(helloCAD
     src/main.cpp
+    src/scene/Transform.cpp
+    src/view/OrbitCamera.cpp
+    src/view/Controller.cpp
 )
 
 add_library(glad STATIC

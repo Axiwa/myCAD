@@ -10,7 +10,7 @@ struct Bbox
 
     Bbox() {
         minimum = glm::vec3(std::numeric_limits<float>::max());
-        maximum = glm::vec3(std::numeric_limits<float>::min());
+        maximum = glm::vec3(std::numeric_limits<float>::lowest());
     }
 
     glm::vec3 center() const{
@@ -24,7 +24,7 @@ struct Bbox
 
     void reset() {
         minimum = glm::vec3(std::numeric_limits<float>::max());
-        maximum = glm::vec3(std::numeric_limits<float>::min());
+        maximum = glm::vec3(std::numeric_limits<float>::lowest());
     }
 
     void expand(const glm::vec3& point){

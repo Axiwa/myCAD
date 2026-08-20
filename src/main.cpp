@@ -6,24 +6,14 @@
 #include <string>
 #include <filesystem>
 
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <BRepMesh_IncrementalMesh.hxx>
-#include <BRep_Tool.hxx>
-#include <Poly_Triangulation.hxx>
-#include <TopExp_Explorer.hxx>
-#include <TopoDS.hxx>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "scene/Transform.hpp"
 #include "view/Controller.hpp"
-
-struct Vertex {
-    glm::vec3 position;
-    glm::vec3 normal;
-};
+#include "geometry/MeshData.hpp"
+#include "geometry/OcctMesher.hpp"
 
 std::filesystem::path executableDirectory()
 {
@@ -140,114 +130,14 @@ glm::dmat4 ToGLMTransform(const gp_Trsf& T) {
 }
 
 int main(){
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    BRepPrimAPI_MakeBox mkBox(1., 1., 1);
-    const TopoDS_Shape& shape = mkBox.Shape();
-
-    BRepMesh_IncrementalMesh mesher(
-        shape,
-        0.01,  // 线性偏差
-        false,
-        0.5,   // 角度偏差，弧度
-        true   // 并行
-    );
-
-    mesher.Perform();
-
-    if (!mesher.IsDone()) {
-        // 三角化失败
-        std::cerr << "Triangulation failed!" << std::endl;
+    //BRepPrimAPI_MakeBox mkBox(1., 1., 1);
+    BRepPrimAPI_MakeCylinder mkCylinder(1.0, 2.0);
+    OcctMesher mesher(mkCylinder); // mkBox
+    MeshData meshData = mesher.GetMeshData();
+    if (meshData.indices.size() % 3 != 0) {
+        std::cerr << "There are something wrong with triangulation!" << std::endl;
         exit(1);
     }
-
-    gp_Trsf shapetransform = shape.Location().Transformation();
-
-    for (TopExp_Explorer explorer(shape, TopAbs_FACE);
-        explorer.More();
-        explorer.Next())
-    {
-        TopoDS_Face face = TopoDS::Face(explorer.Current());
-
-        TopLoc_Location location;
-
-        occ::handle<Poly_Triangulation> triangulation =
-            BRep_Tool::Triangulation(face, location);
-
-        if (!triangulation) {
-            continue;
-        }
-
-        // 从这里提取顶点和三角形
-        const gp_Trsf transform = location.Transformation();
-        const uint32_t baseVertex = 0;
-
-        //for(int nodeIndex = 1; nodeIndex <= triangulation->NbNodes(); nodeIndex++){
-        //    gp_Pnt point = triangulation->Node(nodeIndex);
-        //    point.Transform(transform);
-
-        //    vertices.push_back({
-        //        {
-        //            static_cast<float>(point.X()),
-        //            static_cast<float>(point.Y()),
-        //            static_cast<float>(point.Z()),
-        //        },
-        //        {0.0f, 0.0f, 0.0f}
-        //    });
-        //}
-
-        for(int triangleIndex = 1; triangleIndex <= triangulation->NbTriangles(); triangleIndex++){
-            int n1, n2, n3;
-
-            triangulation->Triangle(triangleIndex).Get(n1, n2, n3);
-
-            uint32_t i1 = baseVertex + n1 - 1;
-            uint32_t i2 = baseVertex + n2 - 1;
-            uint32_t i3 = baseVertex + n3 - 1;
-
-            if (face.Orientation() == TopAbs_REVERSED) {
-                std::swap(i2, i3);
-            }
-
-            indices.push_back(i1);
-            indices.push_back(i2);
-            indices.push_back(i3);
-
-            gp_Pnt p1 = triangulation->Node(n1);
-            gp_Pnt p2 = triangulation->Node(n2);
-            gp_Pnt p3 = triangulation->Node(n3);
-
-            p1.Transform(location.Transformation());
-            p2.Transform(location.Transformation());
-            p3.Transform(location.Transformation());
-
-            vertices.push_back({
-                {
-                    static_cast<float>(p1.X()),
-                    static_cast<float>(p1.Y()),
-                    static_cast<float>(p1.Z()),
-                },
-                {0.0f, 0.0f, 0.0f}
-             });
-            vertices.push_back({
-                {
-                    static_cast<float>(p2.X()),
-                    static_cast<float>(p2.Y()),
-                    static_cast<float>(p2.Z()),
-                },
-                {0.0f, 0.0f, 0.0f}
-            });
-            vertices.push_back({
-                {
-                    static_cast<float>(p3.X()),
-                    static_cast<float>(p3.Y()),
-                    static_cast<float>(p3.Z()),
-                },
-                {0.0f, 0.0f, 0.0f}
-            });
-        }
-    }
-
     Bbox bbox;
 
     Controller myWindow;
@@ -294,7 +184,7 @@ int main(){
 
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, meshData.vertices.size() * sizeof(Vertex), meshData.vertices.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
@@ -303,33 +193,25 @@ int main(){
 
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshData.indices.size() * sizeof(uint32_t), meshData.indices.data(), GL_STATIC_DRAW);
 
     glBindVertexArray(0);
 
     Transform modeltrs;
-    modeltrs.setLocalMatrix(ToGLMTransform(shapetransform));
     modeltrs.updateAsRoot();
     glm::mat4 model = modeltrs.worldMatrix();
     
-    model = glm::scale(model, glm::vec3(2.0f, 1.0f, 1.0f));
-    model = glm::translate(model, glm::vec3(-0.5f, -0.5f, -0.5f));
-
-    // TODO: move object to center
-    for (auto vert : vertices) {
-        glm::vec3 newvert = model * glm::vec4(vert.position, 1);
-        bbox.expand(newvert);
-    }
 
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 proj = glm::mat4(1.0f);
     view = glm::lookAt(glm::vec3(3,3,3), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
     
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glEnable(GL_DEPTH_TEST);
     bool isPressed = false;
     bool wasPressed = false;
+    float time = 0;
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
@@ -347,12 +229,25 @@ int main(){
         const GLint viewLocation = glGetUniformLocation(program, "view");
         const GLint projectionLocation = glGetUniformLocation(program, "proj");
 
-        glUniformMatrix4fv(modelLocation, 1, false, glm::value_ptr(model));
+        // Temp code for testing normal
+        glm::mat4 modelrun;
+        {
+            modelrun = glm::rotate(model, glm::radians(time), glm::vec3(1.0f, 0.f, 1.f));
+            modelrun = glm::scale(modelrun, glm::vec3(2.0f, 1.0f, 1.0f));
+            modelrun = glm::translate(modelrun, glm::vec3(-0.5f, -0.5f, -0.5f));
+
+            for (auto vert : meshData.vertices) {
+                glm::vec3 newvert = modelrun * glm::vec4(vert.position, 1);
+                bbox.expand(newvert);
+            }
+        }
+
+        glUniformMatrix4fv(modelLocation, 1, false, glm::value_ptr(modelrun));
         glUniformMatrix4fv(viewLocation, 1, false, glm::value_ptr(myWindow.GetCamera()->viewMatrix()));
         glUniformMatrix4fv(projectionLocation, 1, false, glm::value_ptr(myWindow.GetCamera()->projectionMatrix()));
 
-        //glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
-        glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+        glDrawElements(GL_TRIANGLES, meshData.indices.size(), GL_UNSIGNED_INT, nullptr);
+        // glDrawArrays(GL_TRIANGLES, 0, vertices.size());
         //glBindVertexArray(0);
 
         isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
@@ -362,6 +257,7 @@ int main(){
 
         wasPressed = isPressed;
         glfwSwapBuffers(myWindow.GetWindow());
+        time++;
     }
 
     return 0;

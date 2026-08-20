@@ -2,7 +2,7 @@
 #include <glm/common.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include "view/Bbox.hpp"
+#include "common/Bbox.hpp"
 
 class OrbitCamera{
 public:

@@ -10,6 +10,7 @@ add_executable(helloCAD
     src/scene/Transform.cpp
     src/view/OrbitCamera.cpp
     src/view/Controller.cpp
+    src/geometry/OcctMesher.cpp
 )
 
 add_library(glad STATIC

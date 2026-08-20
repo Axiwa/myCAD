@@ -138,6 +138,14 @@ int main(){
         std::cerr << "There are something wrong with triangulation!" << std::endl;
         exit(1);
     }
+    const bool invalidIndex = std::any_of(meshData.indices.begin(), meshData.indices.end(), [&](uint32_t index) {
+        return index >= meshData.vertices.size();
+        });
+    if (invalidIndex) {
+        std::cerr << "There are something wrong with triangulation!" << std::endl;
+        exit(1);
+    }
+
     Bbox bbox;
 
     Controller myWindow;
@@ -233,7 +241,7 @@ int main(){
         glm::mat4 modelrun;
         {
             modelrun = glm::rotate(model, glm::radians(time), glm::vec3(1.0f, 0.f, 1.f));
-            modelrun = glm::scale(modelrun, glm::vec3(2.0f, 1.0f, 1.0f));
+            modelrun = glm::scale(modelrun, glm::vec3(1.0f, 1.0f, 2.0f));
             modelrun = glm::translate(modelrun, glm::vec3(-0.5f, -0.5f, -0.5f));
 
             for (auto vert : meshData.vertices) {

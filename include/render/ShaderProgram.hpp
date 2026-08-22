@@ -23,11 +23,11 @@ public:
     bool LoadShader(const std::string& vert, const std::string& frag);
     
     void use();
-    void draw();
     void setMat4(const std::string& name, const glm::mat4& mat) const;
 
     GLuint id() const;
 private:
-    GLuint m_program;
+    GLuint m_program = 0;
     bool checkError(GLuint obj, CheckType type);
+    void clear();
 };

@@ -1,9 +1,7 @@
 #include "geometry/OcctMesher.hpp"
 
 OcctMesher::OcctMesher(const TopoDS_Shape& shape, double lineDeflection, double angleDeflection):
-m_shape(shape),
-m_linedeflection(lineDeflection),
-m_angledeflection(angleDeflection)
+m_shape(shape)
 {
     BRepMesh_IncrementalMesh mesher(
         shape,
@@ -18,8 +16,6 @@ m_angledeflection(angleDeflection)
         m_shape = TopoDS_Shape();
         return;
     }
-    
-    m_transform = m_shape.Location().Transformation();
 }
 
 void OcctMesher::extractTriangleData(MeshData& data) {
@@ -28,23 +24,22 @@ void OcctMesher::extractTriangleData(MeshData& data) {
         TopoDS_Face face = TopoDS::Face(explorer.Current());
         TopLoc_Location location;
         occ::handle<Poly_Triangulation> triangulation = BRep_Tool::Triangulation(face, location);
-        if (!triangulation->HasNormals()) {
-            BRepLib_ToolTriangulatedShape::ComputeNormals(face, triangulation);
-        }
 
         if (triangulation.IsNull()) {
             continue;
         }
 
         const gp_Trsf transform = location.Transformation();
-
+        if (!triangulation->HasNormals()) {
+            BRepLib_ToolTriangulatedShape::ComputeNormals(face, triangulation);
+        }
+        
         for(int i = 1; i <= triangulation->NbNodes(); i++){
             gp_Pnt p = triangulation->Node(i);
             p.Transform(transform);
 
             auto normal = triangulation->Normal(i);
-            const bool isMirrored = transform.VectorialPart().Determinant() < 0.0;
-            if ((face.Orientation() == TopAbs_REVERSED) ^ isMirrored) {
+            if ((face.Orientation() == TopAbs_REVERSED)) {
                 normal.Reverse();
             }
             normal.Transform(transform);
@@ -81,8 +76,6 @@ MeshData OcctMesher::GetMeshData(){
     if (m_shape.IsNull()){
         return data;
     }
-
-    TopAbs_ShapeEnum type = m_shape.ShapeType();
 
     data.type = GeoType::Triangle;
     extractTriangleData(data);

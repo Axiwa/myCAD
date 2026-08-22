@@ -4,27 +4,33 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <utility>
 
 ShaderProgram::ShaderProgram(){
     m_program = glCreateProgram();
 }
 
-ShaderProgram::ShaderProgram(ShaderProgram&& other) noexcept {
-    m_program = other.m_program;
-    other.m_program = 0;
+ShaderProgram::ShaderProgram(ShaderProgram&& other) noexcept:
+m_program(std::exchange(other.m_program, 0)) 
+{
 }
 
 ShaderProgram& ShaderProgram::operator=(ShaderProgram&& other) noexcept {
     if (this != &other){
-        this->m_program = other.m_program;
-        other.m_program = 0;
+        clear();
+        this->m_program = std::exchange(other.m_program, 0);
     }
     return *this;
 }
 
 ShaderProgram::~ShaderProgram(){
+    clear();
+}
+
+void ShaderProgram::clear(){
     if (m_program)
     glDeleteProgram(m_program);
+    m_program = 0;
 }
 
 bool ShaderProgram::LoadShader(const std::string& vert, const std::string& frag){
@@ -119,7 +125,7 @@ bool ShaderProgram::checkError(GLuint obj, CheckType type){
         }
     }
     else{
-        glGetProgramiv(obj, GL_COMPILE_STATUS, &success);
+        glGetProgramiv(obj, GL_LINK_STATUS, &success);
         if (!success){
             glGetProgramInfoLog(obj, 1024, NULL, infoLog);
             std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;

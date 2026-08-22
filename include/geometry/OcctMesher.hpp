@@ -19,7 +19,4 @@ public:
 
 private:
     TopoDS_Shape m_shape;
-    double m_linedeflection;
-    double m_angledeflection;
-    gp_Trsf m_transform;
 };

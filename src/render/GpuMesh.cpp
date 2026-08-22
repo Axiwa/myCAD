@@ -1,36 +1,41 @@
 #include "render/GpuMesh.hpp"
 
 #include<iostream>
+#include <limits>
 
 GpuMesh::GpuMesh(){
     glGenVertexArrays(1, &VAO);
 }
 
-GpuMesh::GpuMesh(GpuMesh&& other) noexcept{
-    VAO = other.VAO;
-    VBO = other.VBO;
-    EBO = other.EBO;
-    m_indexCount = other.m_indexCount;
+GpuMesh::GpuMesh(GpuMesh&& other) noexcept:
+VAO(std::exchange(other.VAO, 0)),
+VBO(std::exchange(other.VBO, 0)),
+EBO(std::exchange(other.EBO, 0)),
+m_indexCount(std::exchange(other.m_indexCount, 0)){
 
-    other.VAO = 0;
-    other.VBO = 0;
-    other.EBO = 0;
 }
 
 GpuMesh& GpuMesh::operator=(GpuMesh&& other) noexcept{
     if (this != &other){
-        VAO = other.VAO;
-        VBO = other.VBO;
-        EBO = other.EBO;
-        m_indexCount = other.m_indexCount;
+        clear();
+        VAO = std::exchange(other.VAO, 0);
+        VBO = std::exchange(other.VBO, 0);
+        EBO = std::exchange(other.EBO, 0);
+        m_indexCount = std::exchange(other.m_indexCount, 0);
     }
 
     return *this;
 }
 
-void GpuMesh::upload(const MeshData& meshdata, GLuint program){
+void GpuMesh::upload(const MeshData& meshdata){
     if (meshdata.vertices.empty() || meshdata.indices.empty() || !meshdata.isValid()){
         std::cerr<<"Empty object! No GPU resources created"<<std::endl;
+        return;
+    }
+    if (meshdata.indices.size() >
+        static_cast<std::size_t>(std::numeric_limits<GLsizei>::max())) {
+        std::cerr << "Too many indices for one glDrawElements call\n";
+        return;
     }
 
     bind();
@@ -50,7 +55,7 @@ void GpuMesh::upload(const MeshData& meshdata, GLuint program){
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, meshdata.indices.size() * sizeof(uint32_t), meshdata.indices.data(), GL_STATIC_DRAW);
 
-    m_indexCount = meshdata.indices.size();
+    m_indexCount = static_cast<GLsizei>(meshdata.indices.size());
     
     unbind();
 }
@@ -68,7 +73,9 @@ void GpuMesh::draw(){
         std::cerr<<"Invalid resources"<<std::endl;
         return;
     }
+    bind();
     glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, nullptr);
+    unbind();
 }
 
 bool GpuMesh::isValid(){
@@ -79,6 +86,10 @@ bool GpuMesh::isValid(){
 }
 
 GpuMesh::~GpuMesh(){
+    clear();
+}
+
+void GpuMesh::clear(){
     if (VAO!=0){
         glDeleteVertexArrays(1, &VAO);
     }
@@ -86,6 +97,10 @@ GpuMesh::~GpuMesh(){
         glDeleteBuffers(1, &VBO);
     }
     if (EBO != 0){
-        glDeleteBuffers(1, &VBO);
+        glDeleteBuffers(1, &EBO);
     }
+    VAO = 0;
+    VBO = 0;
+    EBO = 0;
+    m_indexCount = 0;
 }

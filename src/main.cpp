@@ -77,18 +77,18 @@ int main(){
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
-        exit(1);
+        return 1;
     }
 
     ShaderProgram shaderProgram;
     std::string vertpath = executableDirectory().string() + "/shader/plain.vert";
     std::string fragpath = executableDirectory().string() + "/shader/plain.frag";
     if (!shaderProgram.LoadShader(vertpath, fragpath)){
-        exit(1);
+        return 1;
     }
 
     GpuMesh meshbuffer;
-    meshbuffer.upload(meshData, shaderProgram.id());
+    meshbuffer.upload(meshData);
 
     Transform modeltrs;
     modeltrs.updateAsRoot();
@@ -119,7 +119,6 @@ int main(){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shaderProgram.use();
-        meshbuffer.bind();
 
         for (auto vert : meshData.vertices) {
             glm::vec3 newvert = model * glm::vec4(vert.position, 1);
@@ -131,7 +130,6 @@ int main(){
         shaderProgram.setMat4("proj", myWindow.GetCamera()->projectionMatrix());
 
         meshbuffer.draw();
-        meshbuffer.unbind();
 
         isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
         if (isPressed && !wasPressed) {

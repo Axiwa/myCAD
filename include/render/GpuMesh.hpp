@@ -1,0 +1,26 @@
+#pragma once
+
+#include <glm/glm.hpp>
+#include <glad/glad.h>
+#include "geometry/MeshData.hpp"
+
+class GpuMesh{
+public:
+    GpuMesh();
+    GpuMesh(const GpuMesh& other) = delete;
+    GpuMesh(GpuMesh&& other) noexcept;
+    GpuMesh& operator=(const GpuMesh&) = delete;
+    GpuMesh& operator=(GpuMesh&& other) noexcept;
+    ~GpuMesh();
+    void upload(const MeshData& meshdata, GLuint program);
+    void bind();
+    void unbind();
+    void draw();
+    bool isValid();
+
+private:
+    GLuint VAO = 0;
+    GLuint VBO = 0;
+    GLuint EBO = 0;
+    GLsizei m_indexCount = 0;
+};

@@ -1,13 +1,12 @@
 #pragma once
 
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
 #include <BRep_Tool.hxx>
 #include <Poly_Triangulation.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
+#include <TopoDS_Face.hxx>
 
 #include "geometry/MeshData.hpp"
 
@@ -20,7 +19,7 @@ public:
 
 private:
     TopoDS_Shape m_shape;
-    Standard_Real m_linedeflection;
-    Standard_Real m_angledeflection;
+    double m_linedeflection;
+    double m_angledeflection;
     gp_Trsf m_transform;
 };

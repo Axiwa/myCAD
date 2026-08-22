@@ -11,6 +11,8 @@ add_executable(helloCAD
     src/view/OrbitCamera.cpp
     src/view/Controller.cpp
     src/geometry/OcctMesher.cpp
+    src/render/ShaderProgram.cpp
+    src/render/GpuMesh.cpp
 )
 
 add_library(glad STATIC
@@ -72,9 +74,20 @@ add_custom_command(
         $<TARGET_RUNTIME_DLLS:helloCAD>
         $<TARGET_FILE_DIR:helloCAD>
 
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${PROJECT_SOURCE_DIR}/shader"
-        "$<TARGET_FILE_DIR:helloCAD>/shader"
-
     COMMAND_EXPAND_LISTS
 )
+
+set(MYCAD_RUNTIME_DIR
+    "${CMAKE_BINARY_DIR}/$<CONFIG>"
+)
+
+add_custom_target(copy_shaders ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${MYCAD_RUNTIME_DIR}/shader"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${PROJECT_SOURCE_DIR}/shader"
+        "${MYCAD_RUNTIME_DIR}/shader"
+    VERBATIM
+)
+
+add_dependencies(helloCAD copy_shaders)

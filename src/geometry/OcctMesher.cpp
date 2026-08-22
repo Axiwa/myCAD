@@ -28,6 +28,9 @@ void OcctMesher::extractTriangleData(MeshData& data) {
         TopoDS_Face face = TopoDS::Face(explorer.Current());
         TopLoc_Location location;
         occ::handle<Poly_Triangulation> triangulation = BRep_Tool::Triangulation(face, location);
+        if (!triangulation->HasNormals()) {
+            BRepLib_ToolTriangulatedShape::ComputeNormals(face, triangulation);
+        }
 
         if (triangulation.IsNull()) {
             continue;
@@ -39,16 +42,14 @@ void OcctMesher::extractTriangleData(MeshData& data) {
             gp_Pnt p = triangulation->Node(i);
             p.Transform(transform);
 
-            data.vertices.push_back({ {static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z())}, {0.0f, 0.0f, 0.0f} });
-            if (!triangulation->HasNormals()) {
-                BRepLib_ToolTriangulatedShape::ComputeNormals(face, triangulation);
-            }
             auto normal = triangulation->Normal(i);
             const bool isMirrored = transform.VectorialPart().Determinant() < 0.0;
             if ((face.Orientation() == TopAbs_REVERSED) ^ isMirrored) {
                 normal.Reverse();
             }
             normal.Transform(transform);
+
+            data.vertices.push_back({ {static_cast<float>(p.X()), static_cast<float>(p.Y()), static_cast<float>(p.Z())}, {0.0f, 0.0f, 0.0f} });
             data.vertices.back().normal = glm::normalize(glm::vec3(normal.X(), normal.Y(), normal.Z()));
         }
 
@@ -68,27 +69,6 @@ void OcctMesher::extractTriangleData(MeshData& data) {
             data.indices.push_back(i1);
             data.indices.push_back(i2);
             data.indices.push_back(i3);
-
-            // Calculate vertex normal if needed
-            //if (!hasNormal) {
-                //gp_Pnt p1 = triangulation->Node(n1);
-                //gp_Pnt p2 = triangulation->Node(n2);
-                //gp_Pnt p3 = triangulation->Node(n3);
-                //p1.Transform(transform);
-                //p2.Transform(transform);
-                //p3.Transform(transform);
-                //gp_Vec v1(p1, p2);
-                //gp_Vec v2(p2, p3);
-                //gp_Vec v3(p3, p1);
-                //gp_Vec n = v1.Crossed(v2);
-                //if (face.Orientation() == TopAbs_REVERSED) {
-                //    n.Reverse();
-                //}
-                //glm::vec3 normal = glm::normalize(glm::vec3(n.X(), n.Y(), n.Z()));
-                //data.vertices[i1].normal = normal;
-                //data.vertices[i2].normal = normal;
-                //data.vertices[i3].normal = normal;
-            //}
         }
 
         baseVertex += triangulation->NbNodes();
@@ -104,10 +84,8 @@ MeshData OcctMesher::GetMeshData(){
 
     TopAbs_ShapeEnum type = m_shape.ShapeType();
 
-    if (type == TopAbs_FACE || type == TopAbs_SHELL || type == TopAbs_SOLID){
-        data.type = GeoType::Triangle;
-        extractTriangleData(data);
-    }
+    data.type = GeoType::Triangle;
+    extractTriangleData(data);
 
     return data;
 }

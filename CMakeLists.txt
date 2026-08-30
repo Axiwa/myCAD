@@ -13,6 +13,7 @@ add_executable(helloCAD
     src/geometry/OcctMesher.cpp
     src/render/ShaderProgram.cpp
     src/render/GpuMesh.cpp
+    src/asset/StepXcafImporter.cpp
 )
 
 add_library(glad STATIC
@@ -28,6 +29,9 @@ find_package(OpenCASCADE 8.0.1 CONFIG REQUIRED
         FoundationClasses
         ModelingData
         ModelingAlgorithms
+        Visualization
+        ApplicationFramework
+        DataExchange
     PATHS
         "${OCCT_ROOT}/cmake"
     NO_DEFAULT_PATH
@@ -57,6 +61,15 @@ target_link_libraries(helloCAD PRIVATE
     TKTopAlgo
     TKMesh
     TKPrim
+    TKCDF
+    TKLCAF
+    TKCAF
+    TKXCAF
+    TKBinXCAF
+    TKDE
+    TKXSBase
+    TKDESTEP
+    TKXml
     glad
     glfw3dll 
     opengl32

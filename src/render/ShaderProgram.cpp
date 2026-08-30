@@ -110,6 +110,17 @@ void ShaderProgram::setMat4(const std::string& name, const glm::mat4& mat) const
     glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(mat));
 }
 
+void ShaderProgram::setVec3(const std::string& name, const glm::vec3& vec) const{
+    GLuint loc = glGetUniformLocation(m_program, name.c_str());
+    glUniform3f(loc, vec.x, vec.y, vec.z);
+}
+
+void ShaderProgram::setVec4(const std::string& name, const glm::vec4& vec) const{
+    GLuint loc = glGetUniformLocation(m_program, name.c_str());
+    glUniform4f(loc, vec.x, vec.y, vec.z, vec.w);
+}
+
+
 bool ShaderProgram::checkError(GLuint obj, CheckType type){
     GLint success;
     GLchar infoLog[1024];

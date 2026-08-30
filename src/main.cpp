@@ -1,6 +1,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <stack>
 
 #include <Windows.h>
 #include <string>
@@ -11,11 +12,13 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "scene/Transform.hpp"
+#include "scene/CADScene.hpp"
 #include "view/Controller.hpp"
 #include "geometry/MeshData.hpp"
 #include "geometry/OcctMesher.hpp"
 #include "render/ShaderProgram.hpp"
 #include "render/GpuMesh.hpp"
+#include "asset/StepXcafImporter.hpp"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -34,41 +37,17 @@ std::filesystem::path executableDirectory()
     return std::filesystem::path(buffer).parent_path();
 }
 
-gp_Trsf ToOcctTransform(const glm::dmat4& m) {
-    gp_Trsf T;
-    gp_Mat rot(
-        m[0][0], m[0][1], m[0][2],
-        m[1][0], m[1][1], m[1][2],
-        m[2][0], m[2][1], m[2][2]
-    );
-    
-    T.SetValues(
-        rot.Value(1, 1), rot.Value(1, 2), rot.Value(1, 3), m[3][0],
-        rot.Value(2, 1), rot.Value(2, 2), rot.Value(2, 3), m[3][1],
-        rot.Value(3, 1), rot.Value(3, 2), rot.Value(3, 3), m[3][2]
-    );
-
-    return T;
-}
-
-glm::dmat4 ToGLMTransform(const gp_Trsf& T) {
-    glm::dmat4 m(1.0);
-    for (int i = 1; i < 4; i++) {
-        for (int j = 1; j <= 4; j++) {
-            m[j - 1][i - 1] = T.Value(i, j);
-        }
-    }
-    return m;
-}
-
 int main(){
-    //BRepPrimAPI_MakeBox mkBox(1., 1., 1);
-    BRepPrimAPI_MakeCylinder mkCylinder(1.0, 2.0);
-    OcctMesher mesher(mkCylinder); // mkBox
-    MeshData meshData = mesher.GetMeshData();
-    if (!meshData.isValid()){
+    CadScene cadScene;
+    StepXcafImporter xcafImporter;
+
+    CadDocument test;
+    if (!xcafImporter.load("C:/Users/28025/Learn/model/chassis.step", test)){ // "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"
         exit(1);
     }
+    cadScene.docs.emplace_back(std::move(test));
+
+    Bbox world_bbox;
 
     Controller myWindow;
     glfwMakeContextCurrent(myWindow.GetWindow());
@@ -87,21 +66,20 @@ int main(){
         return 1;
     }
 
-    GpuMesh meshbuffer;
-    meshbuffer.upload(meshData);
+    // Create mesh buffers for cadScene
+    std::vector<std::vector<GpuMesh>> meshBuffers(cadScene.docs.size());
+    for (int i = 0; i < cadScene.docs.size(); i++) {
+        meshBuffers[i].resize(cadScene.docs[i].prototypes.size());
+        for (int j = 0; j < meshBuffers[i].size(); j++) {
+            // if meshData is invalid it doesn't matter
+            meshBuffers[i][j].upload(cadScene.docs[i].prototypes[j].mesh);
+        }
+    }
 
-    Transform modeltrs;
-    modeltrs.updateAsRoot();
-    glm::mat4 model = modeltrs.worldMatrix();
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 proj = glm::mat4(1.0f);
     view = glm::lookAt(glm::vec3(3,3,3), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
-    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.f, 1.f));
-    model = glm::scale(model, glm::vec3(1.0f, 1.0f, 2.0f));
-    model = glm::translate(model, glm::vec3(-0.5f, -0.5f, -0.5f));
-
-    Bbox bbox;
 
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glEnable(GL_DEPTH_TEST);
@@ -119,21 +97,54 @@ int main(){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shaderProgram.use();
-
-        for (auto vert : meshData.vertices) {
-            glm::vec3 newvert = model * glm::vec4(vert.position, 1);
-            bbox.expand(newvert);
-        }
-
-        shaderProgram.setMat4("model", model);
         shaderProgram.setMat4("view", myWindow.GetCamera()->viewMatrix());
         shaderProgram.setMat4("proj", myWindow.GetCamera()->projectionMatrix());
 
-        meshbuffer.draw();
+        if (world_bbox.outDated){
+            world_bbox.reset();
+        }
+
+        // Draw cadScene
+        for (int i = 0; i < cadScene.docs.size(); i++) {
+            const auto& doc = cadScene.docs[i];
+            for (const auto& root : doc.roots) {
+                std::stack<SceneNode> m_stack;
+                m_stack.push(root);
+                SceneNode curr = root;
+                
+                while (!m_stack.empty()) {
+                    curr = m_stack.top();
+                    if (curr.children.size()) {
+                        m_stack.pop();
+                        for (const auto& child : curr.children) {
+                            m_stack.push(child);
+                        }
+                    }
+                    else {
+                        if (curr.prototypeIndex.has_value() && curr.prototypeIndex < meshBuffers[i].size()) {
+                            glm::mat4 model = curr.worldTransform;
+                            shaderProgram.setMat4("model", model);
+                            shaderProgram.setVec4("baseColor", curr.color);
+
+                            // update scene bbox
+                            if (world_bbox.outDated) {
+                                for (auto vert : doc.prototypes[curr.prototypeIndex.value()].mesh.vertices) {
+                                    glm::vec3 pos = model * glm::vec4(vert.position, 1);
+                                    world_bbox.expand(pos);
+                                }
+                            }
+                            meshBuffers[i][curr.prototypeIndex.value()].draw();
+                        }
+                        m_stack.pop();
+                    }
+                }
+            }
+        }
+        world_bbox.outDated = false;
 
         isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
         if (isPressed && !wasPressed) {
-            myWindow.GetCamera()->fitToBbox(bbox);
+            myWindow.GetCamera()->fitToBbox(world_bbox);
         }
         wasPressed = isPressed;
         glfwSwapBuffers(myWindow.GetWindow());

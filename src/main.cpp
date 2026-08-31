@@ -41,6 +41,8 @@ int main(){
     CadScene cadScene;
     StepXcafImporter xcafImporter;
 
+    bool needsInitialFit = true;
+
     CadDocument test;
     if (!xcafImporter.load("C:/Users/28025/Learn/model/chassis.step", test)){ // "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"
         exit(1);
@@ -67,12 +69,15 @@ int main(){
     }
 
     // Create mesh buffers for cadScene
-    std::vector<std::vector<GpuMesh>> meshBuffers(cadScene.docs.size());
+    std::vector<std::vector<std::optional<GpuMesh>>> meshBuffers(cadScene.docs.size());
     for (int i = 0; i < cadScene.docs.size(); i++) {
         meshBuffers[i].resize(cadScene.docs[i].prototypes.size());
         for (int j = 0; j < meshBuffers[i].size(); j++) {
-            // if meshData is invalid it doesn't matter
-            meshBuffers[i][j].upload(cadScene.docs[i].prototypes[j].mesh);
+            auto& mesh = cadScene.docs[i].prototypes[j].mesh;
+            if (cadScene.docs[i].prototypes[j].meshStatus == MeshStatus::Ready){
+                meshBuffers[i][j] = GpuMesh();
+                meshBuffers[i][j].value().upload(mesh);
+            }
         }
     }
 
@@ -108,37 +113,44 @@ int main(){
         for (int i = 0; i < cadScene.docs.size(); i++) {
             const auto& doc = cadScene.docs[i];
             for (const auto& root : doc.roots) {
-                std::stack<SceneNode> m_stack;
-                m_stack.push(root);
-                SceneNode curr = root;
+                std::stack<const SceneNode*> m_stack;
+                m_stack.push(&root);
                 
                 while (!m_stack.empty()) {
-                    curr = m_stack.top();
-                    if (curr.children.size()) {
-                        m_stack.pop();
-                        for (const auto& child : curr.children) {
-                            m_stack.push(child);
+                    const SceneNode* curr = m_stack.top();
+                    m_stack.pop();
+
+                    if (curr->prototypeIndex.has_value()) {
+                        auto index = curr->prototypeIndex.value();
+
+                        if (index < meshBuffers[i].size()){
+                            auto& mesh = doc.prototypes[index].mesh;
+                            if (meshBuffers[i][index].has_value()){
+                                glm::mat4 model = curr->worldTransform;
+                                shaderProgram.setMat4("model", model);
+                                shaderProgram.setVec4("baseColor", curr->colorStyle.surfaceColor);
+
+                                // update scene bbox
+                                if (world_bbox.outDated) {
+                                    for (auto& vert : mesh.vertices) {
+                                        glm::vec3 pos = model * glm::vec4(vert.position, 1);
+                                        world_bbox.expand(pos);
+                                    }
+                                }
+                                meshBuffers[i][index].value().draw();
+                            }
                         }
                     }
-                    else {
-                        if (curr.prototypeIndex.has_value() && curr.prototypeIndex < meshBuffers[i].size()) {
-                            glm::mat4 model = curr.worldTransform;
-                            shaderProgram.setMat4("model", model);
-                            shaderProgram.setVec4("baseColor", curr.color);
-
-                            // update scene bbox
-                            if (world_bbox.outDated) {
-                                for (auto vert : doc.prototypes[curr.prototypeIndex.value()].mesh.vertices) {
-                                    glm::vec3 pos = model * glm::vec4(vert.position, 1);
-                                    world_bbox.expand(pos);
-                                }
-                            }
-                            meshBuffers[i][curr.prototypeIndex.value()].draw();
-                        }
-                        m_stack.pop();
+                    
+                    for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
+                        m_stack.push(&(*it));
                     }
                 }
             }
+        }
+        if (needsInitialFit && world_bbox.valid()){
+            myWindow.GetCamera()->fitToBbox(world_bbox);
+            needsInitialFit = false;
         }
         world_bbox.outDated = false;
 

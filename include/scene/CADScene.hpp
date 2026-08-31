@@ -13,14 +13,33 @@
 #include "common/Bbox.hpp"
 #include "geometry/MeshData.hpp"
 
+enum class MeshStatus{
+    Ready,
+    Empty
+};
+
+enum class ColorSource {
+    Default,
+    Inherited,
+    DefinitionGeneral,
+    DefinitionSurface,
+    OccurrenceGeneral,
+    OccurrenceSurface
+};
+
+struct ResolvedStyle {
+    glm::vec4 surfaceColor{1.0f};
+    ColorSource colorSource = ColorSource::Default;
+};
+
 // definitionlabel
 struct PartPrototype {
     std::string labelEntry;
     std::string name;
     TopoDS_Shape definitionShape;
     MeshData mesh;
+    MeshStatus meshStatus = MeshStatus::Empty;
     Bbox localBbox;
-    glm::dmat4 localTransform{1.0};
 };
 
 // occurrence. Real hierachy
@@ -28,8 +47,8 @@ struct SceneNode {
     std::string name;
     glm::dmat4 localTransform{1.0};
     glm::dmat4 worldTransform{1.0};
-    glm::vec4 color{ 1,1,1,1 };
     std::optional<std::size_t> prototypeIndex; // if this isn't a leaf node, there is no prototypeIndex
+    ResolvedStyle colorStyle;
     std::vector<SceneNode> children;
 };
 

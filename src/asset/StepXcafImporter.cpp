@@ -60,8 +60,11 @@ static std::string ToUtf8(const TCollection_ExtendedString& s)
 }
 
 
-SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, int level) {
+SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level) {
     SceneNode node;
+
+    node.colorStyle = parentcolor;
+    ColorSource colorSource = ColorSource::Inherited;
 
     TDF_Label occurrenceLabel = root;
     TDF_Label definitionLabel = root;
@@ -75,12 +78,15 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const TDF_La
     node.localTransform = ToGLMTransform(local);
     node.worldTransform = ToGLMTransform(world);
 
+    
     Quantity_ColorRGBA color;
-    if (XCAFDoc_ColorTool::GetColor(occurrenceLabel, XCAFDoc_ColorSurf, color))
-        node.color = glm::vec4(color.GetRGB().Red(), color.GetRGB().Green(), color.GetRGB().Blue(), color.Alpha());
+    if (colorTool->GetColor(occurrenceLabel, XCAFDoc_ColorSurf, color)){
+        colorSource = ColorSource::OccurrenceSurface;
+    }
 
-    if (XCAFDoc_ColorTool::GetColor(occurrenceLabel, XCAFDoc_ColorGen, color))
-        node.color = glm::vec4(color.GetRGB().Red(), color.GetRGB().Green(), color.GetRGB().Blue(), color.Alpha());
+    if (colorTool->GetColor(occurrenceLabel, XCAFDoc_ColorGen, color) && colorSource < ColorSource::OccurrenceGeneral){
+        colorSource = ColorSource::OccurrenceGeneral;
+    }
 
     TCollection_AsciiString entry;
     TCollection_AsciiString dentry;
@@ -94,11 +100,21 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const TDF_La
             return node;
         }
 
-        if (XCAFDoc_ColorTool::GetColor(definitionLabel, XCAFDoc_ColorSurf, color))
-            node.color = glm::vec4(color.GetRGB().Red(), color.GetRGB().Green(), color.GetRGB().Blue(), color.Alpha());
+        if (colorTool->GetColor(definitionLabel, XCAFDoc_ColorSurf, color) && colorSource < ColorSource::DefinitionSurface){
+            colorSource = ColorSource::DefinitionSurface;
+        }
 
-        if (XCAFDoc_ColorTool::GetColor(definitionLabel, XCAFDoc_ColorGen, color))
-            node.color = glm::vec4(color.GetRGB().Red(), color.GetRGB().Green(), color.GetRGB().Blue(), color.Alpha());
+        if (colorTool->GetColor(definitionLabel, XCAFDoc_ColorGen, color) && colorSource < ColorSource::DefinitionSurface){
+            colorSource = ColorSource::DefinitionGeneral;
+        }
+    }
+
+    if (colorSource > ColorSource::Default){
+        node.colorStyle.surfaceColor = glm::vec4(color.GetRGB().Red(), color.GetRGB().Green(), color.GetRGB().Blue(), color.Alpha());
+        node.colorStyle.colorSource = colorSource;
+
+        std::cout << "Color Source: " << (int)colorSource << std::endl;
+        std::cout << "RGBA (" << node.colorStyle.surfaceColor.r <<" "<< node.colorStyle.surfaceColor.g <<" " << node.colorStyle.surfaceColor.b << " " << node.colorStyle.surfaceColor.a << ")" <<std::endl;
     }
 
     TDF_Tool::Entry(occurrenceLabel, entry);
@@ -141,7 +157,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const TDF_La
         shapeTool->GetComponents(definitionLabel, components, false);
 
         for (Standard_Integer i = 1; i <= components.Length(); i++) {
-            node.children.emplace_back(std::move(traverse(shapeTool, components.Value(i), partsmap, partsvec, world, level+1)));
+            node.children.emplace_back(std::move(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node.colorStyle, level+1)));
         }
     }
     else {
@@ -163,25 +179,25 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const TDF_La
             OcctMesher mesher(shape);
             Bbox bbox;
             MeshData meshData = mesher.GetMeshData();
-            PartPrototype protyotype;
-            protyotype.labelEntry = ToUtf8(dentry);
-            protyotype.name = node.name;
 
-            if (meshData.isValid()){
+            PartPrototype prototype;
+            prototype.labelEntry = ToUtf8(dentry);
+            prototype.name = node.name;
+            prototype.definitionShape = shape;
+
+            if (meshData.isRenderable()){
                 // TODO: deflocal
                 for (auto vert : meshData.vertices) {
                     bbox.expand(vert.position);
                 }
-
-                protyotype.definitionShape = shape;
-                protyotype.mesh = meshData;
-                protyotype.localBbox = bbox;
-                protyotype.localTransform = deflocal;
+                prototype.mesh = meshData;
+                prototype.meshStatus = MeshStatus::Ready;
+                prototype.localBbox = bbox;
             }
 
-            partsmap[protyotype.labelEntry] = partsvec.size();
+            partsmap[prototype.labelEntry] = partsvec.size();
             node.prototypeIndex = partsvec.size();
-            partsvec.emplace_back(std::move(protyotype));
+            partsvec.emplace_back(std::move(prototype));
         }
     }
 
@@ -211,6 +227,10 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
     aReader.SetLayerMode(true);  // 读取图层
 
     // 3. 读取 STEP 文件
+    if ( !std::filesystem::exists(path)){
+        std::cerr << "Import Error: Path does not exist: "<< path << std::endl;
+        return false;   
+    }
     IFSelect_ReturnStatus aStatus = aReader.ReadFile(path.string().c_str());
     if (aStatus != IFSelect_RetDone) {
         std::cerr << "Import Error: Cannot read from "<< path << std::endl;
@@ -224,9 +244,9 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
     }
 
     // 5. 检查 FreeShapes
-    occ::handle<XCAFDoc_ShapeTool> ashapeTool = XCAFDoc_DocumentTool::ShapeTool(result.m_document->Main());
+    occ::handle<XCAFDoc_ShapeTool> shapeTool = XCAFDoc_DocumentTool::ShapeTool(result.m_document->Main());
     NCollection_Sequence<TDF_Label> aFreeShapes;
-    ashapeTool->GetFreeShapes(aFreeShapes);
+    shapeTool->GetFreeShapes(aFreeShapes);
     if (aFreeShapes.IsEmpty()) {
         std::cerr<<"Import Error: Invalid document!"<<std::endl;
         return false;
@@ -234,13 +254,15 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
 
     std::cout<<"Number of FreeShapes: "<<aFreeShapes.Length()<<std::endl<<std::endl;
 
+    occ::handle<XCAFDoc_ColorTool> colorTool = XCAFDoc_DocumentTool::ColorTool(result.m_document->Main());
     // 6. 打印装配树
     result.sourcePath = path;
     std::unordered_map<std::string, uint32_t> prototypes;
     gp_Trsf trsf;
+    ResolvedStyle color;
     for (NCollection_Sequence<TDF_Label>::Iterator it(aFreeShapes); it.More(); it.Next()) {
         const TDF_Label& root = it.Value();
-        SceneNode node = traverse(ashapeTool, root, prototypes, result.prototypes, trsf, 0);
+        SceneNode node = traverse(shapeTool, colorTool, root, prototypes, result.prototypes, trsf, color, 0);
         result.roots.emplace_back(std::move(node));
     }
 

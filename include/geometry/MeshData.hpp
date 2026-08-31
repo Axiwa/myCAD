@@ -34,4 +34,8 @@ struct MeshData {
         }
         return true;
     }
+
+    bool isRenderable() const{
+        return !vertices.empty() && !indices.empty() && isValid();
+    }
 };

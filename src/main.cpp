@@ -11,7 +11,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "scene/Transform.hpp"
 #include "scene/CADScene.hpp"
 #include "view/Controller.hpp"
 #include "geometry/MeshData.hpp"
@@ -37,17 +36,21 @@ std::filesystem::path executableDirectory()
     return std::filesystem::path(buffer).parent_path();
 }
 
-int main(){
+int main(int argc, char* argv[]) {
     CadScene cadScene;
     StepXcafImporter xcafImporter;
 
     bool needsInitialFit = true;
 
     CadDocument test;
-    if (!xcafImporter.load("C:/Users/28025/Learn/model/chassis.step", test)){ // "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"
+    std::string path = "C:/Users/28025/Learn/model/chassis.step";
+    if (argc > 1) {
+        path = argv[1];
+    }
+    if (!xcafImporter.load(path.c_str(), test)) { // "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"
         exit(1);
     }
-    cadScene.docs.emplace_back(std::move(test));
+    cadScene.docs.emplace_back(test);
 
     Bbox world_bbox;
 

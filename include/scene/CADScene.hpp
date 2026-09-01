@@ -15,12 +15,12 @@
 
 enum class MeshStatus{
     Ready,
-    Empty
+    Empty,
+    Invalid
 };
 
 enum class ColorSource {
     Default,
-    Inherited,
     DefinitionGeneral,
     DefinitionSurface,
     OccurrenceGeneral,
@@ -30,6 +30,21 @@ enum class ColorSource {
 struct ResolvedStyle {
     glm::vec4 surfaceColor{1.0f};
     ColorSource colorSource = ColorSource::Default;
+    std::string toSourceString() {
+        std::string source;
+        switch (colorSource) {
+        case ColorSource::DefinitionGeneral:
+            return "DefinitionGeneral";
+        case ColorSource::DefinitionSurface:
+            return "DefinitionSurface";
+        case ColorSource::OccurrenceGeneral:
+            return "OccurrenceGeneral";
+        case ColorSource::OccurrenceSurface:
+            return "OccurrenceSurface";
+        default:
+            return "Default";
+        }
+    }
 };
 
 // definitionlabel
@@ -59,6 +74,13 @@ struct CadDocument {
 
     std::vector<PartPrototype> prototypes;
     std::vector<SceneNode> roots;
+
+    void clear() {
+        sourcePath.clear();
+        m_document.Nullify();
+        prototypes.clear();
+        roots.clear();
+    }
 };
 
 struct CadScene {

@@ -22,23 +22,6 @@ static void DumpTrsf(const gp_Trsf& trsf) {
     }
 }
 
-gp_Trsf ToOcctTransform(const glm::dmat4& m) {
-    gp_Trsf T;
-    gp_Mat rot(
-        m[0][0], m[1][0], m[2][0],
-        m[0][1], m[1][1], m[2][1],
-        m[0][2], m[1][2], m[2][2]
-    );
-
-    T.SetValues(
-        rot.Value(1, 1), rot.Value(1, 2), rot.Value(1, 3), m[3][0],
-        rot.Value(2, 1), rot.Value(2, 2), rot.Value(2, 3), m[3][1],
-        rot.Value(3, 1), rot.Value(3, 2), rot.Value(3, 3), m[3][2]
-    );
-
-    return T;
-}
-
 glm::dmat4 ToGLMTransform(const gp_Trsf& T) {
     glm::dmat4 m(1.0);
     for (int i = 1; i < 4; i++) {
@@ -80,6 +63,7 @@ static std::string ToUtf8(const TCollection_ExtendedString& s)
 SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level) {
     SceneNode node;
 
+    Quantity_ColorRGBA color;
     node.colorStyle = parentcolor;
 
     TDF_Label occurrenceLabel = root;
@@ -94,11 +78,6 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     node.localTransform = ToGLMTransform(local);
     node.worldTransform = ToGLMTransform(world);
 
-    
-    Quantity_ColorRGBA color;
-    ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorGen, ColorSource::OccurrenceGeneral, node.colorStyle);
-    ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorSurf, ColorSource::OccurrenceSurface, node.colorStyle);
-
     TCollection_AsciiString entry;
     TCollection_AsciiString dentry;
 
@@ -110,9 +89,13 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
             std::cout << "Lable: null" << std::endl;
             return node;
         }
+    }
 
-        ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorGen, ColorSource::DefinitionGeneral, node.colorStyle);
-        ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorSurf, ColorSource::DefinitionSurface, node.colorStyle);
+    ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorGen, ColorSource::DefinitionGeneral, node.colorStyle);
+    ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorSurf, ColorSource::DefinitionSurface, node.colorStyle);
+    if (definitionLabel != occurrenceLabel) {
+        ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorGen, ColorSource::OccurrenceGeneral, node.colorStyle);
+        ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorSurf, ColorSource::OccurrenceSurface, node.colorStyle);
     }
 
     TDF_Tool::Entry(occurrenceLabel, entry);
@@ -134,23 +117,22 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
 
     occ::handle<TDataStd_Name> name;
     if (occurrenceLabel.FindAttribute(TDataStd_Name::GetID(), name)) {
-        std::cout << "Occurence Name: " << name->Get() << std::endl;
         node.name = ToUtf8(name->Get());
     }
     else if (definitionLabel.FindAttribute(TDataStd_Name::GetID(), name)) {
-        std::cout << "Definition Name: " << name->Get() << std::endl;
         node.name = ToUtf8(name->Get());
     }
     else{
         node.name = "default";
     }
 
+    std::cout<< "SceneNode name: " << node.name << std::endl;
     if (XCAFDoc_ShapeTool::IsAssembly(definitionLabel)) {
         NCollection_Sequence<TDF_Label> components;
         shapeTool->GetComponents(definitionLabel, components, false);
 
         for (Standard_Integer i = 1; i <= components.Length(); i++) {
-            node.children.emplace_back(std::move(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node.colorStyle, level+1)));
+            node.children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node.colorStyle, level+1));
         }
     }
     else {
@@ -196,11 +178,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
             std::cout << "Definition Label entry: " << dentry << std::endl;
             std::cout << "Tag: " << definitionLabel.Tag() << "\n";
             std::cout << "Depth: " << definitionLabel.Depth() << "\n";
-            std::cout << "NbAttributes: " << definitionLabel.NbAttributes() << "\n";
-            std::cout << "IsShape: " << XCAFDoc_ShapeTool::IsShape(definitionLabel) << "\n";
-            std::cout << "IsAssembly: " << XCAFDoc_ShapeTool::IsAssembly(definitionLabel) << "\n";
-            std::cout << "IsComponent: " << XCAFDoc_ShapeTool::IsComponent(definitionLabel) << "\n";
-            std::cout << "IsSimpleShape: " << XCAFDoc_ShapeTool::IsSimpleShape(definitionLabel) << "\n";
+            std::cout << "Mesh Status: " << prototype.toMeshStatusString() << "\n";
         }
     }
 

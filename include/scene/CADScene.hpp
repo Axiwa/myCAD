@@ -31,7 +31,6 @@ struct ResolvedStyle {
     glm::vec4 surfaceColor{1.0f};
     ColorSource colorSource = ColorSource::Default;
     std::string toSourceString() {
-        std::string source;
         switch (colorSource) {
         case ColorSource::DefinitionGeneral:
             return "DefinitionGeneral";
@@ -55,6 +54,16 @@ struct PartPrototype {
     MeshData mesh;
     MeshStatus meshStatus = MeshStatus::Empty;
     Bbox localBbox;
+    std::string toMeshStatusString(){
+        switch (meshStatus) {
+        case MeshStatus::Ready:
+            return "Ready";
+        case MeshStatus::Invalid:
+            return "Invalid";
+        default:
+            return "Empty";
+        }
+    }
 };
 
 // occurrence. Real hierachy

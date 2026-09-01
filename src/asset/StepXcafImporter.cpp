@@ -49,7 +49,6 @@ static bool ApplySurfaceColor(
     return true;
 }
 
-
 static std::string ToUtf8(const TCollection_ExtendedString& s)
 {
     const Standard_Integer len = s.LengthOfCString();
@@ -59,11 +58,18 @@ static std::string ToUtf8(const TCollection_ExtendedString& s)
     return out;
 }
 
+static std::string GetLabelName(const TDF_Label& label){
+    occ::handle<TDataStd_Name> name;
+    if (label.FindAttribute(TDataStd_Name::GetID(), name)) {
+        return ToUtf8(name->Get());
+    }
+    else{
+        return std::string();
+    }
+}
 
 SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level) {
     SceneNode node;
-
-    Quantity_ColorRGBA color;
     node.colorStyle = parentcolor;
 
     TDF_Label occurrenceLabel = root;
@@ -115,16 +121,9 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         std::cout << "Shape: <none>\n";
     }
 
-    occ::handle<TDataStd_Name> name;
-    if (occurrenceLabel.FindAttribute(TDataStd_Name::GetID(), name)) {
-        node.name = ToUtf8(name->Get());
-    }
-    else if (definitionLabel.FindAttribute(TDataStd_Name::GetID(), name)) {
-        node.name = ToUtf8(name->Get());
-    }
-    else{
-        node.name = "default";
-    }
+    const std::string definitionName = GetLabelName(definitionLabel);
+    const std::string occurrenceName = occurrenceLabel != definitionLabel ? GetLabelName(occurrenceLabel) : std::string{};
+    node.name = occurrenceName.empty() ? definitionName : occurrenceName;
 
     std::cout<< "SceneNode name: " << node.name << std::endl;
     if (XCAFDoc_ShapeTool::IsAssembly(definitionLabel)) {
@@ -155,7 +154,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
 
             PartPrototype prototype;
             prototype.labelEntry = ToUtf8(dentry);
-            prototype.name = node.name;
+            prototype.name = definitionName.empty() ? ToUtf8(dentry) : definitionName;
             prototype.definitionShape = shape;
 
             if (!meshData.isValid()) {
@@ -176,6 +175,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
 
             std::cout << "--- " << std::endl;
             std::cout << "Definition Label entry: " << dentry << std::endl;
+            std::cout << "Prototype name: " << definitionName << std::endl;
             std::cout << "Tag: " << definitionLabel.Tag() << "\n";
             std::cout << "Depth: " << definitionLabel.Depth() << "\n";
             std::cout << "Mesh Status: " << prototype.toMeshStatusString() << "\n";

@@ -46,10 +46,10 @@ int main(int argc, char* argv[]) {
     std::string path = "C:/Users/28025/Learn/model/chassis.step";
     if (argc > 1) {
         path = argv[1];
-        std::cout << "Import path " << path << std::endl;
+        std::cout << "Import path: " << path << std::endl;
     }
     else{
-        std::cout<<"Null import path, use default"<<std::endl;
+        std::cout<<"Null import path, use default: " << path <<std::endl;
     }
 
     if (!xcafImporter.load(path.c_str(), test)) { // "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"

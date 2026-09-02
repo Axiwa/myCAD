@@ -8,6 +8,7 @@
 #include <XCAFDoc_ShapeTool.hxx>
 #include <XCAFDoc_ColorTool.hxx>
 #include <Quantity_ColorRGBA.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -77,12 +78,6 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
 
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Transform Level: " << level << "\n";
-    
-    const TopLoc_Location location = XCAFDoc_ShapeTool::GetLocation(occurrenceLabel);
-    gp_Trsf local = location.Transformation();
-    gp_Trsf world = parent * local;
-    node.localTransform = ToGLMTransform(local);
-    node.worldTransform = ToGLMTransform(world);
 
     TCollection_AsciiString entry;
     TCollection_AsciiString dentry;
@@ -126,6 +121,22 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     node.name = occurrenceName.empty() ? definitionName : occurrenceName;
 
     std::cout<< "SceneNode name: " << node.name << std::endl;
+
+    const TopLoc_Location location = XCAFDoc_ShapeTool::GetLocation(occurrenceLabel);
+    gp_Trsf local = location.Transformation();
+    gp_Trsf world = parent * local;
+    node.localTransform = ToGLMTransform(local);
+    node.worldTransform = ToGLMTransform(world);
+
+    // === 测试 occurrence transform ===
+    if (node.name == "wheel:2") {
+        local.SetMirror(gp::YOZ());
+        //local.SetTranslation(gp_Vec(2, 2, 0));
+        world = parent * local;
+        node.localTransform = ToGLMTransform(local);
+        node.worldTransform = ToGLMTransform(world);
+    }
+    // ================================
     if (XCAFDoc_ShapeTool::IsAssembly(definitionLabel)) {
         NCollection_Sequence<TDF_Label> components;
         shapeTool->GetComponents(definitionLabel, components, false);
@@ -147,8 +158,14 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
             node.prototypeIndex = partsmap[ToUtf8(dentry)];
         }
         else{
-            // 构造 meshData
-            OcctMesher mesher(shape);
+            // ==== 测试transform代码 ====
+            gp_Trsf mirrorTrsf;
+            //mirrorTrsf.SetMirror(gp::OY());
+            BRepBuilderAPI_Transform builder(shape, mirrorTrsf, false);
+            TopoDS_Shape transformedShape = builder.Shape();
+            // ==========================
+
+            OcctMesher mesher(transformedShape);
             Bbox bbox;
             MeshData meshData = mesher.GetMeshData();
 

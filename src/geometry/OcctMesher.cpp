@@ -30,6 +30,9 @@ void OcctMesher::extractTriangleData(MeshData& data) {
         }
 
         const gp_Trsf transform = location.Transformation();
+        bool isReversed = (face.Orientation() == TopAbs_REVERSED);
+        bool isMirrored = transform.IsNegative(); // 行列式 < 0
+
         if (!triangulation->HasNormals()) {
             BRepLib_ToolTriangulatedShape::ComputeNormals(face, triangulation);
         }
@@ -57,7 +60,7 @@ void OcctMesher::extractTriangleData(MeshData& data) {
             uint32_t i2 = baseVertex + n2 - 1;
             uint32_t i3 = baseVertex + n3 - 1;
 
-            if (face.Orientation() == TopAbs_REVERSED) {
+            if (isReversed ^ isMirrored) {
                 std::swap(i2, i3);
             }
 

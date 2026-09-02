@@ -96,6 +96,8 @@ int main(int argc, char* argv[]) {
 
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+
     bool isPressed = false;
     bool wasPressed = false;
 
@@ -145,6 +147,9 @@ int main(int argc, char* argv[]) {
                                         world_bbox.expand(pos);
                                     }
                                 }
+
+                                const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
+                                glFrontFace(mirrored ? GL_CW : GL_CCW);
                                 meshBuffers[i][index].value().draw();
                             }
                         }

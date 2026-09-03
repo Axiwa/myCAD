@@ -22,7 +22,8 @@
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 
-bool isTestRun = true;
+bool isFaceMirror = false;
+bool isNodeMirror = false;
 
 std::filesystem::path executableDirectory()
 {
@@ -164,7 +165,7 @@ int main(int argc, char* argv[]) {
             }
         }
         if (needsInitialFit && world_bbox.valid()){
-            //myWindow.GetCamera()->fitToBbox(world_bbox);
+            myWindow.GetCamera()->fitToBbox(world_bbox);
             needsInitialFit = false;
         }
         world_bbox.outDated = false;

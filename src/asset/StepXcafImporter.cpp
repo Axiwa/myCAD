@@ -14,7 +14,8 @@
 #include <unordered_map>
 #include <filesystem>
 
-extern bool isTestRun;
+extern bool isFaceMirror;
+extern bool isNodeMirror;
 
 static void DumpTrsf(const gp_Trsf& trsf) {
     for (int i = 1; i < 4; i++) {
@@ -129,7 +130,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     node.worldTransform = ToGLMTransform(world);
 
     // === 测试 occurrence transform ===
-    if (isTestRun){
+    if (isNodeMirror){
         if (entry == "0:1:1:2:2") {
             gp_Trsf testOffset, testMirror;
             testMirror.SetMirror(gp::YOZ());
@@ -173,7 +174,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         else{
             gp_Trsf mirrorTrsf;
             // ==== 测试transform代码 ====
-            if (isTestRun){
+            if (isFaceMirror){
                 mirrorTrsf.SetMirror(gp::XOY());
             }
             // ==========================
@@ -273,6 +274,7 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
         result.roots.emplace_back(std::move(node));
     }
 
+    std::cout << "--------------------------------" << std::endl;
     std::cout << "Prototypes: " << std::endl;
     for(auto& prototype: result.prototypes){
         bool isMirroredShape = prototype.definitionShape.Location().Transformation().IsNegative();

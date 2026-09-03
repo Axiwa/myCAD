@@ -32,6 +32,9 @@ void OcctMesher::extractTriangleData(MeshData& data) {
         const gp_Trsf transform = location.Transformation();
         bool isReversed = (face.Orientation() == TopAbs_REVERSED);
         bool isMirrored = transform.IsNegative(); // 行列式 < 0
+        
+        const double det = transform.VectorialPart().Determinant();
+        std::cout << "Face location determinant: " << det << '\n';
         std::cout << "isReversed: " << isReversed << "; isMirrored: " << isMirrored << std::endl;
 
         if (!triangulation->HasNormals()) {

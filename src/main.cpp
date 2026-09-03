@@ -22,6 +22,8 @@
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 
+bool isTestRun = true;
+
 std::filesystem::path executableDirectory()
 {
     std::wstring buffer(32768, L'\0');

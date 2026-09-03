@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include <filesystem>
 
+extern bool isTestRun;
+
 static void DumpTrsf(const gp_Trsf& trsf) {
     for (int i = 1; i < 4; i++) {
         for (int j = 1; j <= 4; j++) {
@@ -127,15 +129,17 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     node.worldTransform = ToGLMTransform(world);
 
     // === 测试 occurrence transform ===
-    if (entry == "0:1:1:2:2") {
-        gp_Trsf testOffset, testMirror;
-        testMirror.SetMirror(gp::YOZ());
-        testOffset.SetTranslation(gp_Vec(150, 0, 0));
+    if (isTestRun){
+        if (entry == "0:1:1:2:2") {
+            gp_Trsf testOffset, testMirror;
+            testMirror.SetMirror(gp::YOZ());
+            testOffset.SetTranslation(gp_Vec(150, 0, 0));
 
-        local = testOffset * local * testMirror;
-        world = parent * local;
-        node.localTransform = ToGLMTransform(local);
-        node.worldTransform = ToGLMTransform(world);
+            local = testOffset * local * testMirror;
+            world = parent * local;
+            node.localTransform = ToGLMTransform(local);
+            node.worldTransform = ToGLMTransform(world);
+        }
     }
     // ================================
 
@@ -167,11 +171,13 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
             node.prototypeIndex = partsmap[ToUtf8(dentry)];
         }
         else{
-            // ==== 测试transform代码 ====
             gp_Trsf mirrorTrsf;
-            mirrorTrsf.SetMirror(gp::XOY());
-            TopoDS_Shape testShape = shape.Moved(TopLoc_Location(mirrorTrsf), false);
+            // ==== 测试transform代码 ====
+            if (isTestRun){
+                mirrorTrsf.SetMirror(gp::XOY());
+            }
             // ==========================
+            TopoDS_Shape testShape = shape.Moved(TopLoc_Location(mirrorTrsf), false);
 
             OcctMesher mesher(testShape);
             Bbox bbox;

@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
             }
         }
         if (needsInitialFit && world_bbox.valid()){
-            myWindow.GetCamera()->fitToBbox(world_bbox);
+            //myWindow.GetCamera()->fitToBbox(world_bbox);
             needsInitialFit = false;
         }
         world_bbox.outDated = false;

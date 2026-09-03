@@ -120,8 +120,6 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     const std::string occurrenceName = occurrenceLabel != definitionLabel ? GetLabelName(occurrenceLabel) : std::string{};
     node.name = occurrenceName.empty() ? definitionName : occurrenceName;
 
-    std::cout<< "SceneNode name: " << node.name << std::endl;
-
     const TopLoc_Location location = XCAFDoc_ShapeTool::GetLocation(occurrenceLabel);
     gp_Trsf local = location.Transformation();
     gp_Trsf world = parent * local;
@@ -129,14 +127,25 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     node.worldTransform = ToGLMTransform(world);
 
     // === 测试 occurrence transform ===
-    if (node.name == "wheel:2") {
-        local.SetMirror(gp::YOZ());
-        //local.SetTranslation(gp_Vec(2, 2, 0));
+    if (entry == "0:1:1:2:2") {
+        gp_Trsf testOffset, testMirror;
+        testMirror.SetMirror(gp::YOZ());
+        testOffset.SetTranslation(gp_Vec(150, 0, 0));
+
+        local = testOffset * local * testMirror;
         world = parent * local;
         node.localTransform = ToGLMTransform(local);
         node.worldTransform = ToGLMTransform(world);
     }
     // ================================
+
+    std::cout<< "SceneNode name: " << node.name << std::endl;
+    std::cout << "SceneNode mirrored: " << (glm::determinant(glm::dmat3(node.worldTransform)) < 0.0) << std::endl;
+    std::cout << "Definition Label entry: " << dentry << std::endl;
+    std::cout << "Prototype name: " << definitionName << std::endl;
+    std::cout << "Tag: " << definitionLabel.Tag() << "\n";
+    std::cout << "Depth: " << definitionLabel.Depth() << "\n";
+    
     if (XCAFDoc_ShapeTool::IsAssembly(definitionLabel)) {
         NCollection_Sequence<TDF_Label> components;
         shapeTool->GetComponents(definitionLabel, components, false);
@@ -146,7 +155,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         }
     }
     else {
-        std::cout << "Local transform:\n";
+        std::cout<< "---" << std::endl << "Local transform:\n";
         DumpTrsf(local);
         std::cout << "World transform:\n";
         DumpTrsf(world);
@@ -160,19 +169,18 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         else{
             // ==== 测试transform代码 ====
             gp_Trsf mirrorTrsf;
-            //mirrorTrsf.SetMirror(gp::OY());
-            BRepBuilderAPI_Transform builder(shape, mirrorTrsf, false);
-            TopoDS_Shape transformedShape = builder.Shape();
+            mirrorTrsf.SetMirror(gp::XOY());
+            TopoDS_Shape testShape = shape.Moved(TopLoc_Location(mirrorTrsf), false);
             // ==========================
 
-            OcctMesher mesher(transformedShape);
+            OcctMesher mesher(testShape);
             Bbox bbox;
             MeshData meshData = mesher.GetMeshData();
 
             PartPrototype prototype;
             prototype.labelEntry = ToUtf8(dentry);
             prototype.name = definitionName.empty() ? ToUtf8(dentry) : definitionName;
-            prototype.definitionShape = shape;
+            prototype.definitionShape = testShape;
 
             if (!meshData.isValid()) {
                 prototype.meshStatus = MeshStatus::Invalid;
@@ -189,13 +197,6 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
             partsmap[prototype.labelEntry] = partsvec.size();
             node.prototypeIndex = partsvec.size();
             partsvec.emplace_back(std::move(prototype));
-
-            std::cout << "--- " << std::endl;
-            std::cout << "Definition Label entry: " << dentry << std::endl;
-            std::cout << "Prototype name: " << definitionName << std::endl;
-            std::cout << "Tag: " << definitionLabel.Tag() << "\n";
-            std::cout << "Depth: " << definitionLabel.Depth() << "\n";
-            std::cout << "Mesh Status: " << prototype.toMeshStatusString() << "\n";
         }
     }
 
@@ -264,6 +265,16 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
         const TDF_Label& root = it.Value();
         SceneNode node = traverse(shapeTool, colorTool, root, prototypes, result.prototypes, trsf, color, 0);
         result.roots.emplace_back(std::move(node));
+    }
+
+    std::cout << "Prototypes: " << std::endl;
+    for(auto& prototype: result.prototypes){
+        bool isMirroredShape = prototype.definitionShape.Location().Transformation().IsNegative();
+        std::cout << "--- " << std::endl;
+        std::cout << "Label entry: " << prototype.labelEntry << "\n";
+        std::cout << "Prototype name: " << prototype.name << "\n";
+        std::cout << "Prototype mirrored: " << isMirroredShape << "\n";
+        std::cout << "Mesh Status: " << prototype.toMeshStatusString() << "\n";
     }
 
     return true;

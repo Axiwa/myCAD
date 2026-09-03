@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
     }
 
     // IMGUI
-    const char* glsl_version = nullptr;
+    const char* glsl_version = "#version 330 core";
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controlsv
@@ -120,20 +120,19 @@ int main(int argc, char* argv[]) {
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
-        // Start the Dear ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
         int numPrototype = 0;
         int numSceneNode = 0;
         int numTriangles = 0;
 
-        if (!ImGui::GetIO().WantCaptureMouse) {
-            if (!myWindow.update()) {
-                glfwWaitEvents();
-                continue;
-            }
+        if (!myWindow.update(!ImGui::GetIO().WantCaptureMouse)) {
+            glfwWaitEvents();
+            continue;
         }
+
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
         glClearColor(0, 0, 0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -216,12 +215,14 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-            ImGui::Text("Number of document: %d", cadScene.docs.size());
+            ImGui::Text("Number of document: %zu", cadScene.docs.size());
             ImGui::Text("Number of prototype: %d", numPrototype);
             ImGui::Text("Number of node: %d", numSceneNode);
             ImGui::Text("Number of triangle: %d", numTriangles);
 
-            ImGui::Text("Framebuffer width: %f, height: %f", io.DisplaySize.x, io.DisplaySize.y);
+            int width, height;
+            glfwGetFramebufferSize(myWindow.GetWindow(), & width, &height);
+            ImGui::Text("Framebuffer width: %f, height: %f", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
         }

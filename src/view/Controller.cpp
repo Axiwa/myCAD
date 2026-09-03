@@ -84,7 +84,7 @@ Controller::~Controller(){
     glfwTerminate();
 }
 
-bool Controller::update(){
+bool Controller::update(bool allowCameraInput){
     int width, height;
     glfwGetFramebufferSize(m_window, &width, &height);
     if (width <= 0 || height <= 0){
@@ -94,16 +94,18 @@ bool Controller::update(){
     double dx = m_input.mouseX - m_input.previousMouseX;
     double dy = m_input.mouseY - m_input.previousMouseY;
 
-    // dolly has been processed
-    // pan
-    if (m_input.middleButton && glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS){
-        m_camera->pan(dx, dy);
-    }
-    // orbit
-    if (m_input.rightButton){
-        float dphi = -dx * glm::two_pi<float>() / width;
-        float dtheta = -dy * glm::pi<float>() / height;
-        m_camera->orbit(dphi, dtheta);
+    if (allowCameraInput) {
+        // dolly has been processed
+        // pan
+        if (m_input.middleButton && glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
+            m_camera->pan(dx, dy);
+        }
+        // orbit
+        if (m_input.rightButton) {
+            float dphi = -dx * glm::two_pi<float>() / width;
+            float dtheta = -dy * glm::pi<float>() / height;
+            m_camera->orbit(dphi, dtheta);
+        }
     }
 
     m_input.previousMouseX = m_input.mouseX;

@@ -27,7 +27,7 @@ public:
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
     static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-    bool update();
+    bool update(bool allowCameraInput = true);
     GLFWwindow* GetWindow();
     OrbitCamera* GetCamera();
 

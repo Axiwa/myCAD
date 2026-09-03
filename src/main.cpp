@@ -120,9 +120,9 @@ int main(int argc, char* argv[]) {
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
-        int numPrototype = 0;
-        int numSceneNode = 0;
-        int numTriangles = 0;
+        std::size_t numPrototype = 0;
+        std::size_t numSceneNode = 0;
+        std::size_t numTriangles = 0;
 
         if (!myWindow.update(!ImGui::GetIO().WantCaptureMouse)) {
             glfwWaitEvents();
@@ -216,13 +216,13 @@ int main(int argc, char* argv[]) {
                 }
             }
             ImGui::Text("Number of document: %zu", cadScene.docs.size());
-            ImGui::Text("Number of prototype: %d", numPrototype);
-            ImGui::Text("Number of node: %d", numSceneNode);
-            ImGui::Text("Number of triangle: %d", numTriangles);
+            ImGui::Text("Number of prototype: %zu", numPrototype);
+            ImGui::Text("Number of node: %zu", numSceneNode);
+            ImGui::Text("Number of triangle: %zu", numTriangles);
 
             int width, height;
             glfwGetFramebufferSize(myWindow.GetWindow(), & width, &height);
-            ImGui::Text("Framebuffer width: %f, height: %f", width, height);
+            ImGui::Text("Framebuffer width: %d, height: %d", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
         }

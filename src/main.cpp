@@ -22,6 +22,10 @@
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 bool isFaceMirror = false;
 bool isNodeMirror = false;
 
@@ -72,6 +76,15 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // IMGUI
+    const char* glsl_version = nullptr;
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controlsv
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(myWindow.GetWindow(), true);
+    ImGui_ImplOpenGL3_Init(glsl_version);
+
     ShaderProgram shaderProgram;
     std::string vertpath = executableDirectory().string() + "/shader/plain.vert";
     std::string fragpath = executableDirectory().string() + "/shader/plain.frag";
@@ -107,10 +120,21 @@ int main(int argc, char* argv[]) {
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
-        if (!myWindow.update()) {
-            glfwWaitEvents();
-            continue;
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        int numPrototype = 0;
+        int numSceneNode = 0;
+        int numTriangles = 0;
+
+        if (!ImGui::GetIO().WantCaptureMouse) {
+            if (!myWindow.update()) {
+                glfwWaitEvents();
+                continue;
+            }
         }
+
         glClearColor(0, 0, 0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -128,10 +152,11 @@ int main(int argc, char* argv[]) {
             for (const auto& root : doc.roots) {
                 std::stack<const SceneNode*> m_stack;
                 m_stack.push(&root);
-                
+                                
                 while (!m_stack.empty()) {
                     const SceneNode* curr = m_stack.top();
                     m_stack.pop();
+                    numSceneNode++;
 
                     if (curr->prototypeIndex.has_value()) {
                         auto index = curr->prototypeIndex.value();
@@ -175,8 +200,41 @@ int main(int argc, char* argv[]) {
             myWindow.GetCamera()->fitToBbox(world_bbox);
         }
         wasPressed = isPressed;
+
+
+        // IMGUI
+        {
+            ImGui::SetNextWindowSize(ImVec2(400.0f, 150.0f), ImGuiCond_Always);
+            ImGui::Begin("Scene Info");
+            ImGui::Text("Hello Dear ImGui!");
+
+            for (const auto& doc : cadScene.docs) {
+                for (const auto& prototype : doc.prototypes) {
+                    numPrototype++;
+                    if (prototype.meshStatus == MeshStatus::Ready) {
+                        numTriangles += prototype.mesh.indices.size() / 3;
+                    }
+                }
+            }
+            ImGui::Text("Number of document: %d", cadScene.docs.size());
+            ImGui::Text("Number of prototype: %d", numPrototype);
+            ImGui::Text("Number of node: %d", numSceneNode);
+            ImGui::Text("Number of triangle: %d", numTriangles);
+
+            ImGui::Text("Framebuffer width: %f, height: %f", io.DisplaySize.x, io.DisplaySize.y);
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            ImGui::End();
+        }
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
         glfwSwapBuffers(myWindow.GetWindow());
     }
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     return 0;
 }

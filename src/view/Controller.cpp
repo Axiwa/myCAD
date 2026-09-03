@@ -1,4 +1,5 @@
 #include "view/Controller.hpp"
+#include <imgui.h>
 
 void Controller::FramebufferSizeCallback(GLFWwindow* window, int width, int height){
     Controller* myself = reinterpret_cast<Controller*>(glfwGetWindowUserPointer(window));
@@ -11,6 +12,9 @@ void Controller::FramebufferSizeCallback(GLFWwindow* window, int width, int heig
 }
 
 void Controller::ScrollCallback(GLFWwindow* window, double xOffset, double yOffset){
+    if (ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
     Controller* myself = reinterpret_cast<Controller*>(glfwGetWindowUserPointer(window));
     if (yOffset < 0){
         myself->m_camera->dolly(1.1f);
@@ -106,11 +110,6 @@ bool Controller::update(){
     m_input.previousMouseY = m_input.mouseY;
 
     return true;
-
-    // fit
-    // if (glfwGetKey(m_window, GLFW_KEY_F) != GLFW_PRESS){
-    //     m_camera->fitToBbox(???)
-    // }
 }
 
 GLFWwindow* Controller::GetWindow(){

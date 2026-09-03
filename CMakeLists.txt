@@ -20,6 +20,26 @@ add_library(glad STATIC
     src/glad/glad.c
 )
 
+set(IMGUI_DIR ${PROJECT_SOURCE_DIR}/External/imgui)
+# 核心源文件
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+)
+
+# 如果有 backends（根据你的需求选择）
+set(IMGUI_BACKEND_SOURCES
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+add_library(imgui STATIC
+    ${IMGUI_SOURCES} 
+    ${IMGUI_BACKEND_SOURCES}
+)
+
+
 # 设置 GLFW 路径为缓存变量
 set(GLFW_ROOT "${PROJECT_SOURCE_DIR}/External/glfw-3.4" CACHE PATH "GLFW root directory")
 set(OCCT_ROOT "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/install-debug")
@@ -43,6 +63,21 @@ target_include_directories(helloCAD PRIVATE
 
 target_include_directories(glad PUBLIC
     "${PROJECT_SOURCE_DIR}/include"
+)
+
+target_include_directories(imgui PUBLIC
+    ${GLFW_ROOT}/include
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
+target_link_directories(imgui PUBLIC 
+    ${GLFW_ROOT}/lib-vc2022
+)
+target_compile_definitions(imgui PUBLIC GLFW_DLL)
+
+target_link_libraries(imgui PUBLIC
+    glad
+    glfw3dll
 )
 
 # 链接 GLFW 静态或动态库
@@ -73,6 +108,7 @@ target_link_libraries(helloCAD PRIVATE
     glad
     glfw3dll 
     opengl32
+    imgui
 )
 
 # 构建后自动复制 DLL（非常推荐）

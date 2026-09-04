@@ -1,4 +1,4 @@
-#include <glad/glad.h>
+﻿#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <stack>
@@ -46,6 +46,7 @@ std::filesystem::path executableDirectory()
 int main(int argc, char* argv[]) {
     CadScene cadScene;
     StepXcafImporter xcafImporter;
+    std::vector<std::vector<SceneNode>> runtimeNodes;
 
     bool needsInitialFit = true;
 
@@ -116,6 +117,8 @@ int main(int argc, char* argv[]) {
 
     bool isPressed = false;
     bool wasPressed = false;
+    std::optional<SceneSelection> selection;
+    cadScene.getRuntimeNodes(runtimeNodes);
 
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
@@ -200,9 +203,93 @@ int main(int argc, char* argv[]) {
         }
         wasPressed = isPressed;
 
+        int width, height;
+        glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
 
-        // IMGUI
+        // Scene Node
         {
+            ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
+            ImGui::SetNextWindowSize(ImVec2(200.0f, 300.f), ImGuiCond_Once);
+            ImGui::Begin("Scene Hierachy");
+            for (int i = 0; i < cadScene.docs.size(); i++) {
+                const auto& doc = cadScene.docs[i];
+                ImGui::PushID(i);
+                if (ImGui::TreeNode(doc.sourcePath.filename().string().c_str())) {
+                    for (const auto& root : doc.roots) {
+                        std::stack<std::pair<const SceneNode*, bool>> m_stack;
+                        m_stack.emplace(&root, false);
+
+                        while (!m_stack.empty()) {
+                            const SceneNode* curr = m_stack.top().first;
+                            bool touched = m_stack.top().second;
+                            m_stack.pop();
+
+                            bool isLeaf = curr->children.empty();
+                                    
+                            if (touched) {
+                                // Noneed to test isLeaf because leaf will not enter again
+                                ImGui::TreePop();
+                                continue;
+                            }
+
+                            ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+                            if (isLeaf) {
+                                flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+                            }
+
+                            if (selection.has_value() && selection->documentIndex == i && selection->nodeId == curr->id) {
+                                flags |= ImGuiTreeNodeFlags_Selected;
+                            }
+
+                            const bool open = ImGui::TreeNodeEx(std::to_string(curr->id).c_str(), flags, curr->name.c_str());
+                            
+                            if (ImGui::IsItemClicked()) {
+                                selection.emplace();
+                                selection->documentIndex = i;
+                                selection->nodeId = curr->id;
+                            }
+                            
+                            if (open && !(flags & ImGuiTreeNodeFlags_NoTreePushOnOpen)) {
+                                m_stack.emplace(curr, true);
+
+                                for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
+                                    m_stack.emplace(&(*it), false);
+                                }
+                            }
+                        }
+                    }
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
+            ImGui::End();
+            if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()) {
+                selection.reset();
+            }
+
+            if (selection.has_value()) {
+                SceneNode& node = runtimeNodes[selection->documentIndex][selection->nodeId-1];
+
+                ImGui::SetNextWindowPos(ImVec2((float)width, 0.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+                ImGui::SetNextWindowSize(ImVec2(250.0f, 200.0f), ImGuiCond_Always);
+                ImGui::Begin("Node Info");
+
+                ImGui::Text("Node name: %s", node.name.c_str());
+                ImGui::Text("Node ID: %zu", node.id);
+                ImGui::Text("Node label: %s", node.occLabelEntry.c_str());
+                ImGui::Text("Color source: %s", node.colorStyle.toSourceString().c_str());
+                
+                if (node.prototypeIndex.has_value()) {
+                    ImGui::Text("Prototype Name: %s", cadScene.docs[selection->documentIndex].prototypes[node.prototypeIndex.value()].name.c_str());
+                }
+
+                ImGui::End();
+            }
+        }
+
+        // Info
+        {
+            ImGui::SetNextWindowPos(ImVec2(0.0f, (float)height), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
             ImGui::SetNextWindowSize(ImVec2(400.0f, 150.0f), ImGuiCond_Always);
             ImGui::Begin("Scene Info");
             ImGui::Text("Hello Dear ImGui!");
@@ -220,8 +307,6 @@ int main(int argc, char* argv[]) {
             ImGui::Text("Number of node: %zu", numSceneNode);
             ImGui::Text("Number of triangle: %zu", numTriangles);
 
-            int width, height;
-            glfwGetFramebufferSize(myWindow.GetWindow(), & width, &height);
             ImGui::Text("Framebuffer width: %d, height: %d", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();

@@ -72,9 +72,11 @@ static std::string GetLabelName(const TDF_Label& label){
     }
 }
 
-SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level) {
+SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level, SceneNodeId& nodeId) {
     SceneNode node;
     node.colorStyle = parentcolor;
+    nodeId++;
+    node.id = nodeId;
 
     TDF_Label occurrenceLabel = root;
     TDF_Label definitionLabel = root;
@@ -104,24 +106,13 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
 
     TDF_Tool::Entry(occurrenceLabel, entry);
     TDF_Tool::Entry(definitionLabel, dentry);
-    std::cout << "Occurrence Label entry: " << entry << std::endl;
-    std::cout << "Color Source: " << node.colorStyle.toSourceString() << std::endl;
-    std::cout << "RGBA (" << node.colorStyle.surfaceColor.r << " " << node.colorStyle.surfaceColor.g << " " << node.colorStyle.surfaceColor.b << " " << node.colorStyle.surfaceColor.a << ")" << std::endl;
-
-
-    TopoDS_Shape shape = XCAFDoc_ShapeTool::GetShape(definitionLabel);
-    if (!shape.IsNull())
-    {
-        std::cout << "Shape type: " << (int)shape.ShapeType() << "\n";
-    }
-    else
-    {
-        std::cout << "Shape: <none>\n";
-    }
+    node.occLabelEntry = entry.ToCString();
 
     const std::string definitionName = GetLabelName(definitionLabel);
     const std::string occurrenceName = occurrenceLabel != definitionLabel ? GetLabelName(occurrenceLabel) : std::string{};
     node.name = occurrenceName.empty() ? definitionName : occurrenceName;
+
+    TopoDS_Shape shape = XCAFDoc_ShapeTool::GetShape(definitionLabel);
 
     const TopLoc_Location location = XCAFDoc_ShapeTool::GetLocation(occurrenceLabel);
     gp_Trsf local = location.Transformation();
@@ -145,6 +136,18 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     // ================================
 
     std::cout<< "SceneNode name: " << node.name << std::endl;
+    std::cout<< "SceneNode id: " << node.id << std::endl;
+    std::cout << "Occurrence Label entry: " << entry << std::endl;
+    std::cout << "Color Source: " << node.colorStyle.toSourceString() << std::endl;
+    std::cout << "RGBA (" << node.colorStyle.surfaceColor.r << " " << node.colorStyle.surfaceColor.g << " " << node.colorStyle.surfaceColor.b << " " << node.colorStyle.surfaceColor.a << ")" << std::endl;
+    if (!shape.IsNull())
+    {
+        std::cout << "Shape type: " << (int)shape.ShapeType() << "\n";
+    }
+    else
+    {
+        std::cout << "Shape: <none>\n";
+    }
     std::cout << "SceneNode mirrored: " << (glm::determinant(glm::dmat3(node.worldTransform)) < 0.0) << std::endl;
     std::cout << "Definition Label entry: " << dentry << std::endl;
     std::cout << "Prototype name: " << definitionName << std::endl;
@@ -156,7 +159,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         shapeTool->GetComponents(definitionLabel, components, false);
 
         for (Standard_Integer i = 1; i <= components.Length(); i++) {
-            node.children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node.colorStyle, level+1));
+            node.children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node.colorStyle, level+1, nodeId));
         }
     }
     else {
@@ -268,11 +271,13 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
     std::unordered_map<std::string, uint32_t> prototypes;
     gp_Trsf trsf;
     ResolvedStyle color;
+    SceneNodeId nodeId = 0;
     for (NCollection_Sequence<TDF_Label>::Iterator it(aFreeShapes); it.More(); it.Next()) {
         const TDF_Label& root = it.Value();
-        SceneNode node = traverse(shapeTool, colorTool, root, prototypes, result.prototypes, trsf, color, 0);
+        SceneNode node = traverse(shapeTool, colorTool, root, prototypes, result.prototypes, trsf, color, 0, nodeId);
         result.roots.emplace_back(std::move(node));
     }
+    result.numNodes = nodeId;
 
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Prototypes: " << std::endl;

@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <iostream>
+#include <stack>
 
 #include <TDF_Label.hxx>
 #include <TDF_Tool.hxx>
@@ -66,8 +67,18 @@ struct PartPrototype {
     }
 };
 
+using SceneNodeId = std::uint64_t;
+
+struct SceneSelection {
+    std::size_t documentIndex;
+    SceneNodeId nodeId;
+};
+
 // occurrence. Real hierachy
 struct SceneNode {
+    SceneNodeId id = 0;
+    std::string occLabelEntry;
+
     std::string name;
     glm::dmat4 localTransform{1.0};
     glm::dmat4 worldTransform{1.0};
@@ -84,6 +95,8 @@ struct CadDocument {
     std::vector<PartPrototype> prototypes;
     std::vector<SceneNode> roots;
 
+    uint64_t numNodes = 0;
+
     void clear() {
         sourcePath.clear();
         m_document.Nullify();
@@ -94,4 +107,28 @@ struct CadDocument {
 
 struct CadScene {
     std::vector<CadDocument> docs;
+
+    void getRuntimeNodes(std::vector<std::vector<SceneNode>>& runtimeNodes){
+        runtimeNodes.clear();
+
+        for (int i = 0; i < docs.size(); i++) {
+            const auto& doc = docs[i];
+            runtimeNodes.push_back(std::vector<SceneNode>(doc.numNodes));
+
+            for (const auto& root : doc.roots) {
+                std::stack<const SceneNode*> m_stack;
+                m_stack.push(&root);
+                                
+                while (!m_stack.empty()) {
+                    const SceneNode* curr = m_stack.top();
+                    m_stack.pop();
+                    runtimeNodes[i][curr->id-1] = *curr;
+
+                    for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
+                        m_stack.push(&(*it));
+                    }
+                }
+            }
+        }
+    }
 };

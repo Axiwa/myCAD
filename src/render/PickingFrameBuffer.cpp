@@ -69,11 +69,20 @@ bool PickingFrameBuffer::resize(int width, int height){
 		return false;
 	}
 
+    GLuint clearValue = 0;
+    glClearBufferuiv(GL_COLOR, 0, &clearValue);
+    
+    glClearDepth(1.0f);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0); 
     return true;
 }
 
-uint32_t PickingFrameBuffer::pickID(int pixelX, int pixelY){
+uint32_t PickingFrameBuffer::pickID(int pixelX, int pixelY, int width, int height){
+    if (pixelX < 0 || pixelY < 0 || pixelX >= width || pixelY >= height) {
+        return 0;
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, pickFrameBuffer);  // 绑定你的 FBO
     glReadBuffer(GL_COLOR_ATTACHMENT0);                  // 指定要读取的 color attachment
 

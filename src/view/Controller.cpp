@@ -85,14 +85,14 @@ Controller::Controller(){
 }
 
 Controller::~Controller(){
-    if (m_window){
-        glfwDestroyWindow(m_window);
+    if (m_pickBuffer){
+        delete m_pickBuffer;
     }
     if (m_camera){
         delete m_camera;
     }
-    if (m_pickBuffer){
-        delete m_pickBuffer;
+    if (m_window){
+        glfwDestroyWindow(m_window);
     }
 
     glfwTerminate();
@@ -122,7 +122,7 @@ bool Controller::update(bool allowCameraInput){
         }
 
         // pick
-        if (m_input.leftButton) {
+        if (m_input.leftButton && !m_input.leftPressed) {
             int w_width, w_height;
             glfwGetWindowSize(m_window, &w_width, &w_height);
 
@@ -132,8 +132,9 @@ bool Controller::update(bool allowCameraInput){
             int pixelX = floor(m_input.mouseX * scaleX);
             int pixelY = height - 1 - floor(m_input.mouseY * scaleY);
 
-            std::cout << "My pick id: " << m_pickBuffer->pickID(pixelX, pixelY) << std::endl;
+            std::cout << "My pick id: " << m_pickBuffer->pickID(pixelX, pixelY, width, height) << std::endl;
         }
+        m_input.leftPressed = m_input.leftButton;
     }
 
     m_input.previousMouseX = m_input.mouseX;

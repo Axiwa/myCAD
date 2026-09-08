@@ -13,6 +13,7 @@ struct Inputstate {
 
     double scrollDelta = 0.0;
 
+    bool leftPressed = false;
     bool leftButton = false;
     bool middleButton = false;
     bool rightButton = false;

@@ -16,7 +16,7 @@ public:
     bool resize(int width, int height);
     bool bind();
     void unbind(GLint origFB);
-    uint32_t pickID(int x, int y);
+    uint32_t pickID(int x, int y, int width, int height);
     void clear();
     PickId getID() { return id; }
     void setID(PickId in) { id = in; }

@@ -247,12 +247,13 @@ int main(int argc, char* argv[]) {
         }
 
         myWindow.unbindPickBuffer(origFB);
+
+        if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()) {
+            selection.reset();
+        }
         PickId pickedID = myWindow.GetPickFramebuffer()->getID();
         if (pickedID > 0) {
             selection = pickRegistry[pickedID-1];
-        }
-        if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered() && pickedID == 0) {
-            selection.reset();
         }
 
         // ============================================
@@ -285,8 +286,14 @@ int main(int argc, char* argv[]) {
                             if (meshBuffers[i][index].has_value()){
                                 glm::mat4 model = curr->worldTransform;
                                 shaderProgram.setMat4("model", model);
-                                shaderProgram.setVec4("baseColor", curr->colorStyle.surfaceColor);
-
+                                if (selection.has_value() && selection->documentIndex == i && selection->nodeId == curr->id) {
+                                    glm::vec4 col = glm::vec4(1, 1, 0, 1);
+                                    shaderProgram.setVec4("baseColor", col);
+                                }
+                                else {
+                                    shaderProgram.setVec4("baseColor", curr->colorStyle.surfaceColor);
+                                }
+                                
                                 // update scene bbox
                                 if (world_bbox.outDated) {
                                     for (auto& vert : mesh.vertices) {
@@ -377,6 +384,9 @@ int main(int argc, char* argv[]) {
                                 if (pickMap.find(selection.value()) != pickMap.end()){
                                     myWindow.GetPickFramebuffer()->setID(pickMap[selection.value()]);
                                 }
+                                else {
+                                    myWindow.GetPickFramebuffer()->setID(0);
+                                }
                             }
                             
                             if (open && !(flags & ImGuiTreeNodeFlags_NoTreePushOnOpen)) {
@@ -413,29 +423,6 @@ int main(int argc, char* argv[]) {
                 }
 
                 ImGui::End();
-
-                if (pickMap.find(selection.value()) != pickMap.end()) {
-                    pickSecondProgram.use();
-                    pickSecondProgram.setMat4("view", myWindow.GetCamera()->viewMatrix());
-                    pickSecondProgram.setMat4("proj", myWindow.GetCamera()->projectionMatrix());
-                    auto model = node.worldTransform;
-                    pickSecondProgram.setMat4("model", model);
-                    glm::vec4 col = glm::vec4(1, 1, 0, 0.5);
-                    shaderProgram.setVec4("baseColor", col);
-
-                    const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
-
-                    glFrontFace(mirrored ? GL_CW : GL_CCW);
-                    glDisable(GL_DEPTH_TEST);
-                    glEnable(GL_BLEND);
-                    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
-                    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
-                    meshBuffers[selection.value().documentIndex][node.prototypeIndex.value()].value().draw();
-                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-                    glEnable(GL_DEPTH_TEST);
-                    glDisable(GL_BLEND);
-                }
             }
         }
 

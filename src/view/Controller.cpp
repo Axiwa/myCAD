@@ -98,7 +98,7 @@ Controller::~Controller(){
     glfwTerminate();
 }
 
-bool Controller::update(bool allowCameraInput){
+bool Controller::update(uint32_t& pickedID, bool allowCameraInput){
     int width, height;
     glfwGetFramebufferSize(m_window, &width, &height);
     if (width <= 0 || height <= 0){
@@ -131,8 +131,9 @@ bool Controller::update(bool allowCameraInput){
 
             int pixelX = floor(m_input.mouseX * scaleX);
             int pixelY = height - 1 - floor(m_input.mouseY * scaleY);
+            pickedID = m_pickBuffer->pickID(pixelX, pixelY, width, height);
 
-            std::cout << "My pick id: " << m_pickBuffer->pickID(pixelX, pixelY, width, height) << std::endl;
+            std::cout << "My pick id: " << pickedID << std::endl;
         }
         m_input.leftPressed = m_input.leftButton;
     }

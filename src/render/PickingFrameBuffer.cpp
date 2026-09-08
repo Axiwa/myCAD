@@ -94,7 +94,6 @@ uint32_t PickingFrameBuffer::pickID(int pixelX, int pixelY, int width, int heigh
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    id = pixelID;
     return pixelID;
 }
 

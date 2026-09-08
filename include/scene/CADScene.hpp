@@ -124,21 +124,21 @@ struct CadDocument {
 struct CadScene {
     std::vector<CadDocument> docs;
 
-    void getRuntimeNodes(std::vector<std::vector<SceneNode>>& runtimeNodes){
+    void getRuntimeNodes(std::vector<std::vector<SceneNode*>>& runtimeNodes){
         runtimeNodes.clear();
-
+        runtimeNodes.resize(docs.size());
         for (int i = 0; i < docs.size(); i++) {
-            const auto& doc = docs[i];
-            runtimeNodes.push_back(std::vector<SceneNode>(doc.numNodes));
+            auto& doc = docs[i];
+            runtimeNodes[i].assign(static_cast<std::size_t>(doc.numNodes) + 1, nullptr);
 
-            for (const auto& root : doc.roots) {
-                std::stack<const SceneNode*> m_stack;
+            for (auto& root : doc.roots) {
+                std::stack<SceneNode*> m_stack;
                 m_stack.push(&root);
                                 
                 while (!m_stack.empty()) {
-                    const SceneNode* curr = m_stack.top();
+                    SceneNode* curr = m_stack.top();
                     m_stack.pop();
-                    runtimeNodes[i][curr->id-1] = *curr;
+                    runtimeNodes[i][curr->id] = curr;
 
                     for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
                         m_stack.push(&(*it));
@@ -146,5 +146,23 @@ struct CadScene {
                 }
             }
         }
+    }
+
+    SceneNode* resolveSelection(SceneSelection& selection, std::vector<std::vector<SceneNode*>>& runtimeNodes){
+        if (selection.documentIndex >= runtimeNodes.size()) {
+            return nullptr;
+        }
+
+        auto& docs = runtimeNodes[selection.documentIndex];
+        if (selection.nodeId >= docs.size()) {
+            return nullptr;
+        }
+        
+        SceneNode* node = runtimeNodes[selection.documentIndex][selection.nodeId];
+        if (!node || node->id != selection.nodeId) {
+            return nullptr;
+        }
+
+        return node;
     }
 };

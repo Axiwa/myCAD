@@ -105,6 +105,16 @@ void ShaderProgram::use(){
     glUseProgram(m_program);
 }
 
+void ShaderProgram::setUint(const std::string& name, const uint32_t& value) const {
+    GLuint loc = glGetUniformLocation(m_program, name.c_str());
+    glUniform1ui(loc, value);
+}
+
+void ShaderProgram::setInt(const std::string& name, const int& value) const {
+    GLuint loc = glGetUniformLocation(m_program, name.c_str());
+    glUniform1i(loc, value);
+}
+
 void ShaderProgram::setMat4(const std::string& name, const glm::mat4& mat) const{
     GLuint loc = glGetUniformLocation(m_program, name.c_str());
     glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(mat));

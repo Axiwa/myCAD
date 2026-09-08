@@ -14,6 +14,7 @@ add_executable(helloCAD
     src/render/ShaderProgram.cpp
     src/render/GpuMesh.cpp
     src/asset/StepXcafImporter.cpp
+    src/render/PickingFrameBuffer.cpp
 )
 
 add_library(glad STATIC
@@ -122,6 +123,10 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_RUNTIME_DLLS:helloCAD>
         $<TARGET_FILE_DIR:helloCAD>
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${PROJECT_SOURCE_DIR}/fonts"
+        "$<TARGET_FILE_DIR:helloCAD>/fonts"
 
     COMMAND_EXPAND_LISTS
 )

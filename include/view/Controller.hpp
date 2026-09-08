@@ -1,6 +1,7 @@
 #pragma once
-#include <GLFW/glfw3.h>
 #include "view/OrbitCamera.hpp"
+#include "render/PickingFrameBuffer.hpp"
+#include <GLFW/glfw3.h>
 #include <memory>
 
 struct Inputstate {
@@ -12,6 +13,7 @@ struct Inputstate {
 
     double scrollDelta = 0.0;
 
+    bool leftButton = false;
     bool middleButton = false;
     bool rightButton = false;
     bool shift = false;
@@ -30,9 +32,15 @@ public:
     bool update(bool allowCameraInput = true);
     GLFWwindow* GetWindow();
     OrbitCamera* GetCamera();
+    PickingFrameBuffer* GetPickFramebuffer();
+
+    void InitPickframebuffer();
+    bool bindPickBuffer();
+    void unbindPickBuffer(GLuint oriFB);
 
 private:
     GLFWwindow* m_window;
     OrbitCamera* m_camera;
     Inputstate m_input;
+    PickingFrameBuffer* m_pickBuffer;
 };

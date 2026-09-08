@@ -134,6 +134,9 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         }
     }
     // ================================
+    if (node.name == "wheel-axle:1") {
+        node.isVisible = false;
+    }
 
     std::cout<< "SceneNode name: " << node.name << std::endl;
     std::cout<< "SceneNode id: " << node.id << std::endl;

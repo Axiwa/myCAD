@@ -13,6 +13,7 @@
 
 #include "common/Bbox.hpp"
 #include "geometry/MeshData.hpp"
+#include "render/PickingFrameBuffer.hpp"
 
 enum class MeshStatus{
     Ready,
@@ -72,7 +73,20 @@ using SceneNodeId = std::uint64_t;
 struct SceneSelection {
     std::size_t documentIndex;
     SceneNodeId nodeId;
+
+    bool operator==(const SceneSelection& other) const {
+        return documentIndex == other.documentIndex && nodeId == other.nodeId;
+    }
 };
+
+struct SceneSelectionHash {
+    std::size_t operator()(const SceneSelection& s) const noexcept {
+        std::size_t h1 = std::hash<std::size_t>{}(s.documentIndex);
+        std::size_t h2 = std::hash<SceneNodeId>{}(s.nodeId);
+        return h1 ^ (h2 << 1);
+    }
+};
+
 
 // occurrence. Real hierachy
 struct SceneNode {
@@ -85,6 +99,8 @@ struct SceneNode {
     std::optional<std::size_t> prototypeIndex; // if this isn't a leaf node, there is no prototypeIndex
     ResolvedStyle colorStyle;
     std::vector<SceneNode> children;
+
+    mutable bool isVisible = true;
 };
 
 // list of scenenode

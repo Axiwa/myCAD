@@ -1,5 +1,6 @@
 #include "view/Controller.hpp"
 #include <imgui.h>
+#include <iostream>
 
 void Controller::FramebufferSizeCallback(GLFWwindow* window, int width, int height){
     Controller* myself = reinterpret_cast<Controller*>(glfwGetWindowUserPointer(window));
@@ -9,6 +10,7 @@ void Controller::FramebufferSizeCallback(GLFWwindow* window, int width, int heig
     glViewport(0, 0, width, height);
 
     myself->m_camera->setViewport(width, height);
+    myself->m_pickBuffer->resize(width, height);
 }
 
 void Controller::ScrollCallback(GLFWwindow* window, double xOffset, double yOffset){
@@ -42,6 +44,14 @@ void Controller::MouseButtonCallback(GLFWwindow* window, int button, int action,
             myself->m_input.middleButton = false;
         }
     }
+    if (button == GLFW_MOUSE_BUTTON_LEFT) {
+        if (action == GLFW_PRESS) {
+            myself->m_input.leftButton = true;
+        }
+        else {
+            myself->m_input.leftButton = false;
+        }
+    }
     myself->m_input.previousMouseX = myself->m_input.mouseX;
     myself->m_input.previousMouseY = myself->m_input.mouseY;
 }
@@ -63,6 +73,7 @@ Controller::Controller(){
     if (m_window == nullptr){ glfwTerminate(); }
 
     m_camera = new OrbitCamera(width, height);
+    m_pickBuffer = new PickingFrameBuffer();
 
     glfwMakeContextCurrent(m_window);
 
@@ -79,6 +90,9 @@ Controller::~Controller(){
     }
     if (m_camera){
         delete m_camera;
+    }
+    if (m_pickBuffer){
+        delete m_pickBuffer;
     }
 
     glfwTerminate();
@@ -106,6 +120,20 @@ bool Controller::update(bool allowCameraInput){
             float dtheta = -dy * glm::pi<float>() / height;
             m_camera->orbit(dphi, dtheta);
         }
+
+        // pick
+        if (m_input.leftButton) {
+            int w_width, w_height;
+            glfwGetWindowSize(m_window, &w_width, &w_height);
+
+            float scaleX = width / w_width;
+            float scaleY = height / w_height;
+
+            int pixelX = floor(m_input.mouseX * scaleX);
+            int pixelY = height - 1 - floor(m_input.mouseY * scaleY);
+
+            std::cout << "My pick id: " << m_pickBuffer->pickID(pixelX, pixelY) << std::endl;
+        }
     }
 
     m_input.previousMouseX = m_input.mouseX;
@@ -120,4 +148,32 @@ GLFWwindow* Controller::GetWindow(){
 
 OrbitCamera* Controller::GetCamera(){
     return m_camera;
+}
+
+PickingFrameBuffer* Controller::GetPickFramebuffer(){
+    return m_pickBuffer;
+}
+
+void Controller::InitPickframebuffer() {
+    int width, height;
+    glfwGetFramebufferSize(m_window, &width, &height);
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    m_pickBuffer->resize(width, height);
+}
+
+bool Controller::bindPickBuffer(){
+    if (m_pickBuffer->bind()) return true;
+    return false;
+}
+
+void Controller::unbindPickBuffer(GLuint origFB){
+    int width, height;
+    glfwGetFramebufferSize(m_window, &width, &height);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, origFB);
+    glViewport(0, 0, width, height);
+    glClearColor(0, 0, 0, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }

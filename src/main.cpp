@@ -17,7 +17,9 @@
 #include "geometry/OcctMesher.hpp"
 #include "render/ShaderProgram.hpp"
 #include "render/GpuMesh.hpp"
+#include "render/PickingFrameBuffer.hpp"
 #include "asset/StepXcafImporter.hpp"
+#include "IconsFontAwesome6.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -77,19 +79,59 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    myWindow.InitPickframebuffer();
+
     // IMGUI
     const char* glsl_version = "#version 330 core";
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controlsv
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(myWindow.GetWindow(), true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    ShaderProgram shaderProgram;
+    std::string fontfile = executableDirectory().string() + "/fonts/Roboto-Regular.ttf";
+    io.Fonts->AddFontFromFileTTF(
+        fontfile.c_str(),
+        16.0f
+    );
+
+    ImFontConfig config;
+    config.MergeMode = true;
+    config.PixelSnapH = true;
+
+    static const ImWchar icon_ranges[] =
+    {
+        ICON_MIN_FA,
+        ICON_MAX_FA,
+        0
+    };
+
+    std::string awesomefile = executableDirectory().string() + "/fonts/fa-solid-900.ttf";
+    io.Fonts->AddFontFromFileTTF(
+        awesomefile.c_str(),
+        16.0f,
+        &config,
+        icon_ranges
+    );
+
     std::string vertpath = executableDirectory().string() + "/shader/plain.vert";
     std::string fragpath = executableDirectory().string() + "/shader/plain.frag";
+    std::string pickpath = executableDirectory().string() + "/shader/offscreen.frag";
+    std::string highlightpath = executableDirectory().string() + "/shader/highlight.frag";
+
+    ShaderProgram pickFirstProgram;
+    if (!pickFirstProgram.LoadShader(vertpath, pickpath)) {
+        return 1;
+    }
+
+    ShaderProgram shaderProgram;
     if (!shaderProgram.LoadShader(vertpath, fragpath)){
+        return 1;
+    }
+
+    ShaderProgram pickSecondProgram;
+    if (!pickSecondProgram.LoadShader(vertpath, highlightpath)) {
         return 1;
     }
 
@@ -120,6 +162,23 @@ int main(int argc, char* argv[]) {
     std::optional<SceneSelection> selection;
     cadScene.getRuntimeNodes(runtimeNodes);
 
+    std::vector<SceneSelection> pickRegistry;
+    std::unordered_map<SceneSelection, PickId, SceneSelectionHash> pickMap;
+    for(int i = 0; i<runtimeNodes.size(); i++){
+        auto& doc = runtimeNodes[i];
+        for(auto& node: doc){
+            if (node.prototypeIndex.has_value()){
+                auto index = node.prototypeIndex.value();
+                if (cadScene.docs[i].prototypes[index].meshStatus == MeshStatus::Ready){
+                    pickRegistry.emplace_back();
+                    pickRegistry.back().documentIndex = i;
+                    pickRegistry.back().nodeId = node.id;
+                    pickMap[pickRegistry.back()] = pickRegistry.size();
+                }
+            }
+        }
+    }
+
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
@@ -137,16 +196,72 @@ int main(int argc, char* argv[]) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        if (world_bbox.outDated) {
+            world_bbox.reset();
+        }
+
+        // =========== Draw picking offscreen ========
+        GLint origFB;
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &origFB);
+        myWindow.bindPickBuffer();
+
+        pickFirstProgram.use();
+        pickFirstProgram.setMat4("view", myWindow.GetCamera()->viewMatrix());
+        pickFirstProgram.setMat4("proj", myWindow.GetCamera()->projectionMatrix());
+        for (int i = 0; i < cadScene.docs.size(); i++) {
+            const auto& doc = cadScene.docs[i];
+            for (const auto& root : doc.roots) {
+                std::stack<const SceneNode*> m_stack;
+                m_stack.push(&root);
+
+                while (!m_stack.empty()) {
+                    const SceneNode* curr = m_stack.top();
+                    m_stack.pop();
+                    if (curr->isVisible == false) {
+                        continue;
+                    }
+
+                    if (curr->prototypeIndex.has_value()) {
+                        auto index = curr->prototypeIndex.value();
+
+                        if (index < meshBuffers[i].size()) {
+                            auto& mesh = doc.prototypes[index].mesh;
+                            SceneSelection selection{ i, curr->id };
+
+                            if (meshBuffers[i][index].has_value() && pickMap.find(selection) != pickMap.end()) {
+                                glm::mat4 model = curr->worldTransform;
+                                pickFirstProgram.setMat4("model", model);
+                                pickFirstProgram.setUint("pickId", pickMap[selection]);
+
+                                const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
+                                glFrontFace(mirrored ? GL_CW : GL_CCW);
+                                meshBuffers[i][index].value().draw();
+                            }
+                        }
+                    }
+                    for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
+                        m_stack.push(&(*it));
+                    }
+                }
+            }
+        }
+
+        myWindow.unbindPickBuffer(origFB);
+        PickId pickedID = myWindow.GetPickFramebuffer()->getID();
+        if (pickedID > 0) {
+            selection = pickRegistry[pickedID-1];
+        }
+        if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered() && pickedID == 0) {
+            selection.reset();
+        }
+
+        // ============================================
         glClearColor(0, 0, 0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shaderProgram.use();
         shaderProgram.setMat4("view", myWindow.GetCamera()->viewMatrix());
         shaderProgram.setMat4("proj", myWindow.GetCamera()->projectionMatrix());
-
-        if (world_bbox.outDated){
-            world_bbox.reset();
-        }
 
         // Draw cadScene
         for (int i = 0; i < cadScene.docs.size(); i++) {
@@ -158,7 +273,9 @@ int main(int argc, char* argv[]) {
                 while (!m_stack.empty()) {
                     const SceneNode* curr = m_stack.top();
                     m_stack.pop();
-                    numSceneNode++;
+                    if (curr->isVisible == false) {
+                        continue;
+                    }
 
                     if (curr->prototypeIndex.has_value()) {
                         auto index = curr->prototypeIndex.value();
@@ -223,12 +340,14 @@ int main(int argc, char* argv[]) {
                             const SceneNode* curr = m_stack.top().first;
                             bool touched = m_stack.top().second;
                             m_stack.pop();
+                            ImGui::PushID(curr);
 
                             bool isLeaf = curr->children.empty();
                                     
                             if (touched) {
                                 // Noneed to test isLeaf because leaf will not enter again
                                 ImGui::TreePop();
+                                ImGui::PopID();
                                 continue;
                             }
 
@@ -241,12 +360,23 @@ int main(int argc, char* argv[]) {
                                 flags |= ImGuiTreeNodeFlags_Selected;
                             }
 
-                            const bool open = ImGui::TreeNodeEx(std::to_string(curr->id).c_str(), flags, curr->name.c_str());
+                            // 眼睛按钮
+                            if (ImGui::SmallButton(curr->isVisible ? ICON_FA_EYE "##visibility" : ICON_FA_EYE_SLASH "##visibility"))
+                            {
+                                curr->isVisible = !curr->isVisible;
+                                world_bbox.outDated = true;
+                            }
+
+                            ImGui::SameLine();
+                            const bool open = ImGui::TreeNodeEx(std::to_string(curr->id).c_str(), flags, "%s", curr->name.c_str());
                             
                             if (ImGui::IsItemClicked()) {
                                 selection.emplace();
                                 selection->documentIndex = i;
                                 selection->nodeId = curr->id;
+                                if (pickMap.find(selection.value()) != pickMap.end()){
+                                    myWindow.GetPickFramebuffer()->setID(pickMap[selection.value()]);
+                                }
                             }
                             
                             if (open && !(flags & ImGuiTreeNodeFlags_NoTreePushOnOpen)) {
@@ -256,6 +386,8 @@ int main(int argc, char* argv[]) {
                                     m_stack.emplace(&(*it), false);
                                 }
                             }
+
+                            ImGui::PopID();
                         }
                     }
                     ImGui::TreePop();
@@ -263,9 +395,6 @@ int main(int argc, char* argv[]) {
                 ImGui::PopID();
             }
             ImGui::End();
-            if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()) {
-                selection.reset();
-            }
 
             if (selection.has_value()) {
                 SceneNode& node = runtimeNodes[selection->documentIndex][selection->nodeId-1];
@@ -284,6 +413,29 @@ int main(int argc, char* argv[]) {
                 }
 
                 ImGui::End();
+
+                if (pickMap.find(selection.value()) != pickMap.end()) {
+                    pickSecondProgram.use();
+                    pickSecondProgram.setMat4("view", myWindow.GetCamera()->viewMatrix());
+                    pickSecondProgram.setMat4("proj", myWindow.GetCamera()->projectionMatrix());
+                    auto model = node.worldTransform;
+                    pickSecondProgram.setMat4("model", model);
+                    glm::vec4 col = glm::vec4(1, 1, 0, 0.5);
+                    shaderProgram.setVec4("baseColor", col);
+
+                    const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
+
+                    glFrontFace(mirrored ? GL_CW : GL_CCW);
+                    glDisable(GL_DEPTH_TEST);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+                    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+                    meshBuffers[selection.value().documentIndex][node.prototypeIndex.value()].value().draw();
+                    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                    glEnable(GL_DEPTH_TEST);
+                    glDisable(GL_BLEND);
+                }
             }
         }
 
@@ -294,13 +446,15 @@ int main(int argc, char* argv[]) {
             ImGui::Begin("Scene Info");
             ImGui::Text("Hello Dear ImGui!");
 
-            for (const auto& doc : cadScene.docs) {
+            for (int i = 0; i<cadScene.docs.size(); i++) {
+                const auto& doc = cadScene.docs[i];
                 for (const auto& prototype : doc.prototypes) {
                     numPrototype++;
                     if (prototype.meshStatus == MeshStatus::Ready) {
                         numTriangles += prototype.mesh.indices.size() / 3;
                     }
                 }
+                numSceneNode += runtimeNodes[i].size();
             }
             ImGui::Text("Number of document: %zu", cadScene.docs.size());
             ImGui::Text("Number of prototype: %zu", numPrototype);

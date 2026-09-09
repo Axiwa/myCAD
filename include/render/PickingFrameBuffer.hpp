@@ -16,7 +16,7 @@ public:
     bool resize(int width, int height);
     bool bind();
     void unbind(GLint origFB);
-    uint32_t pickID(int x, int y, int width, int height);
+    uint32_t pickID(int x, int y);
     void clear();
 
 private:
@@ -25,6 +25,4 @@ private:
     GLuint depthAttachment = 0;
     int m_width = 0;
     int m_height = 0;
-
-    PickId id = 0;
 };

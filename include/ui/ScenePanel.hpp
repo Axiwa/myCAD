@@ -59,7 +59,7 @@ public:
         ImGui::NewFrame();
     }
 
-    void drawHierachy(CadScene& cadScene, Bbox& world_bbox, std::optional<SceneSelection>& selection, uint32_t& pickedID, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){
+    void drawHierachy(CadScene& cadScene, Bbox& world_bbox, std::optional<SceneSelection>& selection){
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(200.0f, 300.f), ImGuiCond_Once);
         ImGui::Begin("Scene Hierachy");
@@ -109,12 +109,6 @@ public:
                             selection.emplace();
                             selection->documentIndex = i;
                             selection->nodeId = curr->id;
-                            if (pickMap.find(selection.value()) != pickMap.end()){
-                                pickedID = pickMap[selection.value()];
-                            }
-                            else {
-                                pickedID = 0;
-                            }
                         }
                         
                         if (open && !(flags & ImGuiTreeNodeFlags_NoTreePushOnOpen)) {

@@ -98,7 +98,7 @@ Controller::~Controller(){
     glfwTerminate();
 }
 
-bool Controller::update(uint32_t& pickedID, bool allowCameraInput){
+bool Controller::update(bool allowCameraInput){
     int width, height;
     glfwGetFramebufferSize(m_window, &width, &height);
     if (width <= 0 || height <= 0){
@@ -120,22 +120,6 @@ bool Controller::update(uint32_t& pickedID, bool allowCameraInput){
             float dtheta = -dy * glm::pi<float>() / height;
             m_camera->orbit(dphi, dtheta);
         }
-
-        // pick
-        if (m_input.leftButton && !m_input.leftPressed) {
-            int w_width, w_height;
-            glfwGetWindowSize(m_window, &w_width, &w_height);
-
-            float scaleX = width / w_width;
-            float scaleY = height / w_height;
-
-            int pixelX = floor(m_input.mouseX * scaleX);
-            int pixelY = height - 1 - floor(m_input.mouseY * scaleY);
-            pickedID = m_pickBuffer->pickID(pixelX, pixelY, width, height);
-
-            std::cout << "My pick id: " << pickedID << std::endl;
-        }
-        m_input.leftPressed = m_input.leftButton;
     }
 
     m_input.previousMouseX = m_input.mouseX;
@@ -178,4 +162,28 @@ void Controller::unbindPickBuffer(GLuint origFB){
     glViewport(0, 0, width, height);
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+bool Controller::consumeLeftPress(std::optional<mouseCoord>& pos){
+    bool pressed = m_input.leftButton && !m_input.leftPressed;
+    if (pressed) {
+        int width, height;
+        int w_width, w_height;
+        glfwGetFramebufferSize(m_window, &width, &height);
+        glfwGetWindowSize(m_window, &w_width, &w_height);
+        
+        if (w_width > 0 && w_height > 0){
+            float scaleX = (float)width / w_width;
+            float scaleY = (float)height / w_height;
+
+            int pixelX = (int)floor(m_input.mouseX * scaleX);
+            int pixelY = height - 1 - (int)floor(m_input.mouseY * scaleY);
+            pos.emplace();
+            pos->x = pixelX;
+            pos->y = pixelY;
+        }
+    }
+
+    m_input.leftPressed = m_input.leftButton;
+    return pressed;
 }

@@ -114,7 +114,6 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    PickId pickedID = 0;
 
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
@@ -123,27 +122,44 @@ int main(int argc, char* argv[]) {
         std::size_t numSceneNode = 0;
         std::size_t numTriangles = 0;
 
-        if (!myWindow.update(pickedID, !ImGui::GetIO().WantCaptureMouse)) {
-            glfwWaitEvents();
-            continue;
-        }
+        PickId pickedID = 0;
 
         // Start the Dear ImGui frame
         scenePanel.newFrame();
 
-        if (world_bbox.outDated) {
-            world_bbox.reset();
+        if (!myWindow.update(!ImGui::GetIO().WantCaptureMouse)) {
+            glfwWaitEvents();
+            continue;
         }
 
         if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()) {
             selection.reset();
         }
-        sceneRenderer.offscreePicking(myWindow, cadScene, pickMap);
 
-        if (pickedID > 0) {
-            selection = pickRegistry[pickedID-1];
+        int width, height;
+        glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
+
+        std::optional<mouseCoord> pixelCoord;
+        bool leftPress = myWindow.consumeLeftPress(pixelCoord);
+        if (leftPress && pixelCoord.has_value()){
+            sceneRenderer.offscreenPicking(myWindow, cadScene, pickMap);
+            pickedID = myWindow.GetPickFramebuffer()->pickID(pixelCoord->x, pixelCoord->y);
+            std::cout << "Clicked ID: " << pickedID << std::endl;
         }
 
+        if (pickedID > 0 && pickedID <= pickRegistry.size()) {
+            selection = pickRegistry[pickedID-1];
+        }
+        else {
+            pickedID = 0;
+            if (pickedID > pickRegistry.size()) {
+                std::cout << "Pick something wrong!" << std::endl;
+            }
+        }
+
+        if (world_bbox.outDated) {
+            world_bbox.reset();
+        }
         sceneRenderer.renderScene(myWindow, cadScene, world_bbox, selection);
 
         if (needsInitialFit && world_bbox.valid()){
@@ -158,12 +174,9 @@ int main(int argc, char* argv[]) {
         }
         wasPressed = isPressed;
 
-        int width, height;
-        glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
-
         // Scene Node
         {
-            scenePanel.drawHierachy(cadScene, world_bbox, selection, pickedID, pickMap);
+            scenePanel.drawHierachy(cadScene, world_bbox, selection);
 
             if (selection.has_value()) {
                 SceneNode* node = cadScene.resolveSelection(selection.value(), runtimeNodes);

@@ -106,7 +106,7 @@ public:
         }
     }
 
-    void offscreePicking(Controller& myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){
+    void offscreenPicking(Controller& myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){
         // =========== Draw picking offscreen ========
         GLint origFB;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &origFB);

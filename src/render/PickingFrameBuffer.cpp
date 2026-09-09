@@ -28,8 +28,6 @@ bool PickingFrameBuffer::resize(int width, int height){
     if (m_width == width && m_height == height && pickFrameBuffer){
         return true;
     }
-    m_width = width;
-    m_height = height;
 
     if (pickFrameBuffer) {
         glDeleteFramebuffers(1, &pickFrameBuffer);
@@ -66,21 +64,19 @@ bool PickingFrameBuffer::resize(int width, int height){
 		std::cerr << "Frame buffer is not configured!" << std::endl;
         std::cout << glCheckFramebufferStatus(GL_FRAMEBUFFER) << std::endl;
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        clear();
 		return false;
 	}
 
-    GLuint clearValue = 0;
-    glClearBufferuiv(GL_COLOR, 0, &clearValue);
-    
-    glClearDepth(1.0f);
-    glClear(GL_DEPTH_BUFFER_BIT);
+    m_width = width;
+    m_height = height;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0); 
     return true;
 }
 
-uint32_t PickingFrameBuffer::pickID(int pixelX, int pixelY, int width, int height){
-    if (pixelX < 0 || pixelY < 0 || pixelX >= width || pixelY >= height) {
+uint32_t PickingFrameBuffer::pickID(int pixelX, int pixelY){
+    if (pixelX < 0 || pixelY < 0 || pixelX >= m_width || pixelY >= m_height) {
         return 0;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, pickFrameBuffer);  // 绑定你的 FBO
@@ -101,8 +97,13 @@ bool PickingFrameBuffer::bind(){
     if (pickFrameBuffer){
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pickFrameBuffer);
 		glViewport(0, 0, m_width, m_height);
-		glClearColor(0, 0, 0, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        GLuint clearValue = 0;
+        glClearBufferuiv(GL_COLOR, 0, &clearValue);
+        
+        glClearDepth(1.0f);
+        glClear(GL_DEPTH_BUFFER_BIT);
+
         return true;
     }
     std::cerr<<"Invalid picking framebuffer"<<std::endl;

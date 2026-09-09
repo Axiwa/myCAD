@@ -3,6 +3,7 @@
 #include "render/PickingFrameBuffer.hpp"
 #include <GLFW/glfw3.h>
 #include <memory>
+#include <optional>
 
 struct Inputstate {
     double mouseX = 0.0;
@@ -20,6 +21,11 @@ struct Inputstate {
     bool shift = false;
 };
 
+struct mouseCoord{
+    int x;
+    int y;
+};
+
 class Controller{
 public:
     Controller();
@@ -30,14 +36,16 @@ public:
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
     static void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-    bool update(uint32_t& pickedID, bool allowCameraInput = true);
+    bool update(bool allowCameraInput = true);
     GLFWwindow* GetWindow();
     OrbitCamera* GetCamera();
     PickingFrameBuffer* GetPickFramebuffer();
+    void GetScreenSize(int& width, int& height);
 
     void InitPickframebuffer();
     bool bindPickBuffer();
     void unbindPickBuffer(GLuint oriFB);
+    bool consumeLeftPress(std::optional<mouseCoord>& pos);
 
 private:
     GLFWwindow* m_window;

@@ -84,11 +84,10 @@ public:
                                 
                                 // update scene bbox
                                 if (world_bbox.outDated) {
-                                    // todo: localbbox
-                                    for (auto& vert : mesh.vertices) {
-                                        glm::vec3 pos = model * glm::vec4(vert.position, 1);
-                                        world_bbox.expand(pos);
-                                    }
+                                    Bbox nodebox = doc.prototypes[index].localBbox;
+                                    nodebox.applyTransform(model);
+                                    world_bbox.expand(nodebox.minimum);
+                                    world_bbox.expand(nodebox.maximum);
                                 }
 
                                 const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;

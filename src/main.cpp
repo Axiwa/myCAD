@@ -147,25 +147,29 @@ int main(int argc, char* argv[]) {
         std::optional<mouseCoord> pixelCoord;
         bool leftPress = myWindow.consumeLeftPress(pixelCoord);
         if (allowViewportMouse && leftPress && pixelCoord.has_value()){
-            sceneRenderer.offscreenPicking(myWindow, cadScene, pickMap);
-            pickedID = myWindow.GetPickFramebuffer()->pickID(pixelCoord->x, pixelCoord->y);
-            std::cout << "Clicked ID: " << pickedID << std::endl;
+            if (sceneRenderer.offscreenPicking(myWindow, cadScene, pickMap)){
+                pickedID = myWindow.GetPickFramebuffer()->pickID(pixelCoord->x, pixelCoord->y);
+                std::cout << "Clicked ID: " << pickedID << std::endl;
 
-            if (pickedID > 0 && pickedID <= pickRegistry.size()) {
-                sceneState.selection = pickRegistry[pickedID - 1];
-            }
-            else {
-                if (pickedID > pickRegistry.size()) {
-                    std::cout << "Pick something not pickable!" << std::endl;
+                if (pickedID > 0 && pickedID <= pickRegistry.size()) {
+                    sceneState.selection = pickRegistry[pickedID - 1];
                 }
-                pickedID = 0;
-                sceneState.selection.reset();
+                else {
+                    if (pickedID > pickRegistry.size()) {
+                        std::cout << "Pick something not pickable!" << std::endl;
+                    }
+                    pickedID = 0;
+                    sceneState.selection.reset();
+                }
             }
         }
 
         if (sceneState.visibleBoundsDirty) {
             sceneState.visibleBounds.reset();
         }
+
+        glClearColor(0, 0, 0, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         sceneRenderer.renderScene(myWindow, cadScene, sceneState);
 
         if (needsInitialFit && sceneState.visibleBounds.valid()){

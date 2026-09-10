@@ -14,9 +14,6 @@ void Controller::FramebufferSizeCallback(GLFWwindow* window, int width, int heig
 }
 
 void Controller::ScrollCallback(GLFWwindow* window, double xOffset, double yOffset){
-    if (ImGui::GetIO().WantCaptureMouse) {
-        return;
-    }
     Controller* myself = reinterpret_cast<Controller*>(glfwGetWindowUserPointer(window));
     myself->m_input.scrollDelta += yOffset;
 }
@@ -105,10 +102,10 @@ bool Controller::update(bool allowCameraInput){
 
     if (allowCameraInput) {
         // dolly has been processed
-        if (m_input.scrollDelta > 0) {
+        if (m_input.scrollDelta < 0) {
             m_camera->dolly(1.1f);
         }
-        else if (m_input.scrollDelta < 0) {
+        else if (m_input.scrollDelta > 0) {
             m_camera->dolly(1 / 1.1f);
         }
         
@@ -163,8 +160,6 @@ void Controller::unbindPickBuffer(GLuint origFB){
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, origFB);
     glViewport(0, 0, width, height);
-    glClearColor(0, 0, 0, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 bool Controller::consumeLeftPress(std::optional<mouseCoord>& pos){

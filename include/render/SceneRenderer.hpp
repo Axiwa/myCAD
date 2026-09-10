@@ -45,9 +45,6 @@ public:
     }
 
     void renderScene(Controller& myWindow, CadScene& cadScene, SceneRuntimeState& state){
-        glClearColor(0, 0, 0, 1.0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         shaderProgram.use();
         shaderProgram.setMat4("view", myWindow.GetCamera()->viewMatrix());
         shaderProgram.setMat4("proj", myWindow.GetCamera()->projectionMatrix());
@@ -105,14 +102,14 @@ public:
         }
     }
 
-    void offscreenPicking(Controller& myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){
+    bool offscreenPicking(Controller& myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){
         // =========== Draw picking offscreen ========
         GLint origFB;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &origFB);
         if (!myWindow.bindPickBuffer()){
             std::cout<<"Cannot bind picking buffer"<<std::endl;
             myWindow.unbindPickBuffer(origFB);
-            return;
+            return false;
         }
 
         pickFirstProgram.use();
@@ -157,7 +154,7 @@ public:
         }
 
         myWindow.unbindPickBuffer(origFB);
-        return;
+        return true;
     }
 
 private:

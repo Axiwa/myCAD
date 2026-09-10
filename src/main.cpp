@@ -117,14 +117,11 @@ int main(int argc, char* argv[]) {
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
-        std::size_t numPrototype = 0;
-        std::size_t numSceneNode = 0;
-        std::size_t numTriangles = 0;
+        int width = 0;
+        int height = 0;
+        glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
 
-        PickId pickedID = 0;
-
-        bool allowViewportMouse = !ImGui::GetIO().WantCaptureMouse;
-        if (!myWindow.update(allowViewportMouse)) {
+        if (width <= 0 || height <= 0) {
             glfwWaitEvents();
             continue;
         }
@@ -132,8 +129,14 @@ int main(int argc, char* argv[]) {
         // Start the Dear ImGui frame
         scenePanel.newFrame();
 
-        int width, height;
-        glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
+        std::size_t numPrototype = 0;
+        std::size_t numSceneNode = 0;
+        std::size_t numTriangles = 0;
+
+        PickId pickedID = 0;
+
+        bool allowViewportMouse = !ImGui::GetIO().WantCaptureMouse;
+        myWindow.update(allowViewportMouse);
 
         if (sceneState.sceneStructureDirty){
             // this will not happen for now but ...
@@ -147,16 +150,17 @@ int main(int argc, char* argv[]) {
             sceneRenderer.offscreenPicking(myWindow, cadScene, pickMap);
             pickedID = myWindow.GetPickFramebuffer()->pickID(pixelCoord->x, pixelCoord->y);
             std::cout << "Clicked ID: " << pickedID << std::endl;
-        }
 
-        if (pickedID > 0 && pickedID <= pickRegistry.size()) {
-            sceneState.selection = pickRegistry[pickedID-1];
-        }
-        else {
-            if (pickedID > pickRegistry.size()) {
-                std::cout << "Pick something not pickable!" << std::endl;
+            if (pickedID > 0 && pickedID <= pickRegistry.size()) {
+                sceneState.selection = pickRegistry[pickedID - 1];
             }
-            pickedID = 0;
+            else {
+                if (pickedID > pickRegistry.size()) {
+                    std::cout << "Pick something not pickable!" << std::endl;
+                }
+                pickedID = 0;
+                sceneState.selection.reset();
+            }
         }
 
         if (sceneState.visibleBoundsDirty) {
@@ -174,8 +178,8 @@ int main(int argc, char* argv[]) {
         if (isPressed && !wasPressed) {
             if (sceneState.selection.has_value()){
                 Bbox rootbox;
-                int docindex = sceneState.selection->documentIndex;
-                int nodeid = sceneState.selection->nodeId;
+                size_t docindex = sceneState.selection->documentIndex;
+                SceneNodeId nodeid = sceneState.selection->nodeId;
                 if (docindex < runtimeNodes.size() && nodeid < runtimeNodes[docindex].size()) {
                     SceneNode* root = cadScene.resolveSelection(sceneState.selection.value(), runtimeNodes);
                     std::stack<const SceneNode*> m_stack;
@@ -188,11 +192,11 @@ int main(int argc, char* argv[]) {
                         }
 
                         if (curr->prototypeIndex.has_value()) {
-                            int prototypeid = curr->prototypeIndex.value();
+                            size_t prototypeid = curr->prototypeIndex.value();
                             if (prototypeid >= cadScene.docs[docindex].prototypes.size()){
                                 continue;
                             }
-                            auto prototype = cadScene.docs[docindex].prototypes[prototypeid];
+                            const auto& prototype = cadScene.docs[docindex].prototypes[prototypeid];
                             if (prototype.meshStatus != MeshStatus::Ready ||
                                 !prototype.localBbox.valid()) {
                                 continue;

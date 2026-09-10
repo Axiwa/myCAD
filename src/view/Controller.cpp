@@ -18,12 +18,7 @@ void Controller::ScrollCallback(GLFWwindow* window, double xOffset, double yOffs
         return;
     }
     Controller* myself = reinterpret_cast<Controller*>(glfwGetWindowUserPointer(window));
-    if (yOffset < 0){
-        myself->m_camera->dolly(1.1f);
-    }
-    else{
-        myself->m_camera->dolly(1 / 1.1f);
-    }
+    myself->m_input.scrollDelta += yOffset;
 }
 
 void Controller::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods){
@@ -110,6 +105,13 @@ bool Controller::update(bool allowCameraInput){
 
     if (allowCameraInput) {
         // dolly has been processed
+        if (m_input.scrollDelta > 0) {
+            m_camera->dolly(1.1f);
+        }
+        else if (m_input.scrollDelta < 0) {
+            m_camera->dolly(1 / 1.1f);
+        }
+        
         // pan
         if (m_input.middleButton && glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
             m_camera->pan(dx, dy);
@@ -124,6 +126,7 @@ bool Controller::update(bool allowCameraInput){
 
     m_input.previousMouseX = m_input.mouseX;
     m_input.previousMouseY = m_input.mouseY;
+    m_input.scrollDelta = 0;
 
     return true;
 }

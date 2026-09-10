@@ -149,19 +149,6 @@ void Controller::InitPickframebuffer() {
     m_pickBuffer->resize(width, height);
 }
 
-bool Controller::bindPickBuffer(){
-    if (m_pickBuffer->bind()) return true;
-    return false;
-}
-
-void Controller::unbindPickBuffer(GLuint origFB){
-    int width, height;
-    glfwGetFramebufferSize(m_window, &width, &height);
-
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, origFB);
-    glViewport(0, 0, width, height);
-}
-
 bool Controller::consumeLeftPress(std::optional<mouseCoord>& pos){
     bool pressed = m_input.leftButton && !m_input.leftPressed;
     if (pressed) {

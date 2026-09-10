@@ -14,11 +14,10 @@
 
 #include "scene/CADScene.hpp"
 
-extern std::filesystem::path executableDirectory();
 
 class ScenePanel{
 public:
-    ScenePanel(GLFWwindow* window){
+    ScenePanel(GLFWwindow* window, const std::filesystem::path& executableDirectory){
         const char* glsl_version = "#version 330 core";
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -27,7 +26,7 @@ public:
         ImGui_ImplGlfw_InitForOpenGL(window, true);
         ImGui_ImplOpenGL3_Init(glsl_version);
 
-        std::string fontfile = executableDirectory().string() + "/fonts/Roboto-Regular.ttf";
+        std::string fontfile = executableDirectory.string() + "/fonts/Roboto-Regular.ttf";
         io.Fonts->AddFontFromFileTTF(
             fontfile.c_str(),
             16.0f
@@ -44,7 +43,7 @@ public:
             0
         };
 
-        std::string awesomefile = executableDirectory().string() + "/fonts/fa-solid-900.ttf";
+        std::string awesomefile = executableDirectory.string() + "/fonts/fa-solid-900.ttf";
         io.Fonts->AddFontFromFileTTF(
             awesomefile.c_str(),
             16.0f,

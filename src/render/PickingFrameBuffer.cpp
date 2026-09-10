@@ -110,6 +110,10 @@ bool PickingFrameBuffer::bind(){
     return false;
 }
 
-void PickingFrameBuffer::unbind(GLint origFB){
+void PickingFrameBuffer::unbind(GLint origFB, GLFWwindow* window){
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, origFB);
+    glViewport(0, 0, width, height);
 }

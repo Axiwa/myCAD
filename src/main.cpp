@@ -21,6 +21,7 @@
 #include "render/SceneRenderer.hpp"
 #include "asset/StepXcafImporter.hpp"
 #include "ui/ScenePanel.hpp"
+#include "profiler/profiler.hpp"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -50,6 +51,7 @@ int main(int argc, char* argv[]) {
     CadScene cadScene;
     StepXcafImporter xcafImporter;
     std::vector<std::vector<SceneNode*>> runtimeNodes;
+    std::filesystem::path exePath = executableDirectory();
 
     bool needsInitialFit = true;
 
@@ -81,11 +83,11 @@ int main(int argc, char* argv[]) {
     myWindow.InitPickframebuffer();
 
     // IMGUI
-    ScenePanel scenePanel(myWindow.GetWindow());
+    ScenePanel scenePanel(myWindow.GetWindow(), exePath);
     ImGuiIO& io = ImGui::GetIO(); (void)io;
 
     // Create mesh buffers for cadScene
-    SceneRenderer sceneRenderer;
+    SceneRenderer sceneRenderer(exePath);
     sceneRenderer.collectObjects(cadScene);
 
     glEnable(GL_DEPTH_TEST);
@@ -95,6 +97,10 @@ int main(int argc, char* argv[]) {
     bool wasPressed = false;
 
     SceneRuntimeState sceneState;
+    Profiler cpuProfiler;
+    RenderStats renderStats;
+    uint32_t frameCount = 0;
+
     cadScene.getRuntimeNodes(runtimeNodes);
 
     std::vector<SceneSelection> pickRegistry;
@@ -113,10 +119,18 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-
+    glfwSwapInterval(0);
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
+        if (frameCount >= cpuProfiler.warmupCount){
+            cpuProfiler.start();
+        }
+        renderStats.drawCalls = 0;
+        renderStats.visibleOccurrences = 0;
+        renderStats.submittedTriangles = 0;
+        renderStats.uniquePrototypeTriangles = 0;
+        
         int width = 0;
         int height = 0;
         glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
@@ -129,9 +143,8 @@ int main(int argc, char* argv[]) {
         // Start the Dear ImGui frame
         scenePanel.newFrame();
 
-        std::size_t numPrototype = 0;
-        std::size_t numSceneNode = 0;
-        std::size_t numTriangles = 0;
+        size_t numPrototype = 0;
+        size_t numSceneNode = 0;
 
         PickId pickedID = 0;
 
@@ -147,7 +160,7 @@ int main(int argc, char* argv[]) {
         std::optional<mouseCoord> pixelCoord;
         bool leftPress = myWindow.consumeLeftPress(pixelCoord);
         if (allowViewportMouse && leftPress && pixelCoord.has_value()){
-            if (sceneRenderer.offscreenPicking(myWindow, cadScene, pickMap)){
+            if (sceneRenderer.offscreenPicking(myWindow.GetCamera(), myWindow.GetPickFramebuffer(), myWindow.GetWindow(), cadScene, pickMap)){
                 pickedID = myWindow.GetPickFramebuffer()->pickID(pixelCoord->x, pixelCoord->y);
                 std::cout << "Clicked ID: " << pickedID << std::endl;
 
@@ -170,7 +183,7 @@ int main(int argc, char* argv[]) {
 
         glClearColor(0, 0, 0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        sceneRenderer.renderScene(myWindow, cadScene, sceneState);
+        sceneRenderer.renderScene(myWindow.GetCamera(), cadScene, sceneState, renderStats);
 
         if (needsInitialFit && sceneState.visibleBounds.valid()){
             myWindow.GetCamera()->fitToBbox(sceneState.visibleBounds);
@@ -259,7 +272,7 @@ int main(int argc, char* argv[]) {
         // Info
         {
             ImGui::SetNextWindowPos(ImVec2(0.0f, (float)height), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
-            ImGui::SetNextWindowSize(ImVec2(400.0f, 150.0f), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_Always);
             ImGui::Begin("Scene Info");
             ImGui::Text("Hello Dear ImGui!");
 
@@ -268,7 +281,7 @@ int main(int argc, char* argv[]) {
                 for (const auto& prototype : doc.prototypes) {
                     numPrototype++;
                     if (prototype.meshStatus == MeshStatus::Ready) {
-                        numTriangles += prototype.mesh.indices.size() / 3;
+                        renderStats.uniquePrototypeTriangles += prototype.mesh.indices.size() / 3;
                     }
                 }
                 numSceneNode += (runtimeNodes[i].size() - 1);
@@ -276,10 +289,18 @@ int main(int argc, char* argv[]) {
             ImGui::Text("Number of document: %zu", cadScene.docs.size());
             ImGui::Text("Number of prototype: %zu", numPrototype);
             ImGui::Text("Number of node: %zu", numSceneNode);
-            ImGui::Text("Number of triangle: %zu", numTriangles);
+            ImGui::Text("Number of unique triangle: %zu", renderStats.uniquePrototypeTriangles);
+            ImGui::Text("Number of submitted triangles: %zu", renderStats.submittedTriangles);
+            ImGui::Text("Number of visible occurrences: %zu", renderStats.visibleOccurrences);
+            ImGui::Text("Number of draw calls: %zu", renderStats.drawCalls);
 
             ImGui::Text("Framebuffer width: %d, height: %d", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+            if (cpuProfiler.getTotalFrames() > 1 && cpuProfiler.getTotalFrames() % cpuProfiler.maxCount == 1){
+                renderStats.cpuRenderMilliseconds = cpuProfiler.getAvgTime();
+            }
+            ImGui::Text("Application average cpu time: %.3f ms", renderStats.cpuRenderMilliseconds);
             ImGui::End();
         }
 
@@ -295,7 +316,11 @@ int main(int argc, char* argv[]) {
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+        if (frameCount >= cpuProfiler.warmupCount){
+            cpuProfiler.accumulate();
+        }
         glfwSwapBuffers(myWindow.GetWindow());
+        frameCount++;
     }
 
     return 0;

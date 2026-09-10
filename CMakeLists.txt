@@ -15,6 +15,7 @@ add_executable(helloCAD
     src/render/GpuMesh.cpp
     src/asset/StepXcafImporter.cpp
     src/render/PickingFrameBuffer.cpp
+    src/render/SceneRenderer.cpp
 )
 
 add_library(glad STATIC

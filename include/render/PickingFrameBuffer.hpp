@@ -1,6 +1,7 @@
 #pragma once
 
-#include <glad/glad.h> 
+#include <glad/glad.h>
+#include <glfw/glfw3.h>
 #include <cstdint>
 
 using PickId = std::uint32_t;
@@ -15,7 +16,7 @@ public:
     PickingFrameBuffer& operator=(const PickingFrameBuffer&) = delete;
     bool resize(int width, int height);
     bool bind();
-    void unbind(GLint origFB);
+    void unbind(GLint origFB, GLFWwindow* window);
     uint32_t pickID(int x, int y);
     void clear();
 

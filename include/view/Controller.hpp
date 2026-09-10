@@ -43,8 +43,6 @@ public:
     void GetScreenSize(int& width, int& height);
 
     void InitPickframebuffer();
-    bool bindPickBuffer();
-    void unbindPickBuffer(GLuint oriFB);
     bool consumeLeftPress(std::optional<mouseCoord>& pos);
 
 private:

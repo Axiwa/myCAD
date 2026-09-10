@@ -132,10 +132,6 @@ int main(int argc, char* argv[]) {
         // Start the Dear ImGui frame
         scenePanel.newFrame();
 
-        if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()) {
-            sceneState.selection.reset();
-        }
-
         int width, height;
         glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
 
@@ -146,8 +142,8 @@ int main(int argc, char* argv[]) {
         }
 
         std::optional<mouseCoord> pixelCoord;
-        bool leftPress = allowViewportMouse && myWindow.consumeLeftPress(pixelCoord);
-        if (leftPress && pixelCoord.has_value()){
+        bool leftPress = myWindow.consumeLeftPress(pixelCoord);
+        if (allowViewportMouse && leftPress && pixelCoord.has_value()){
             sceneRenderer.offscreenPicking(myWindow, cadScene, pickMap);
             pickedID = myWindow.GetPickFramebuffer()->pickID(pixelCoord->x, pixelCoord->y);
             std::cout << "Clicked ID: " << pickedID << std::endl;
@@ -277,6 +273,15 @@ int main(int argc, char* argv[]) {
             ImGui::Text("Framebuffer width: %d, height: %d", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
+        }
+
+        const bool clickedUiBlank =
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
+            !ImGui::IsAnyItemHovered();
+
+        if (clickedUiBlank) {
+            sceneState.selection.reset();
         }
 
         ImGui::Render();

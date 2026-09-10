@@ -109,7 +109,11 @@ public:
         // =========== Draw picking offscreen ========
         GLint origFB;
         glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &origFB);
-        myWindow.bindPickBuffer();
+        if (!myWindow.bindPickBuffer()){
+            std::cout<<"Cannot bind picking buffer"<<std::endl;
+            myWindow.unbindPickBuffer(origFB);
+            return;
+        }
 
         pickFirstProgram.use();
         pickFirstProgram.setMat4("view", myWindow.GetCamera()->viewMatrix());

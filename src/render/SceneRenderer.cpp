@@ -1,10 +1,20 @@
+#include <filesystem>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+
 #include "render/SceneRenderer.hpp"
+#include "scene/CADScene.hpp"
+#include "view/OrbitCamera.hpp"
+#include "render/GpuMesh.hpp"
+#include "render/PickingFrameBuffer.hpp"
+#include "render/ShaderProgram.hpp"
+#include "profiler/profiler.hpp"
 
 SceneRenderer::SceneRenderer(const std::filesystem::path& executableDirectory){
     std::string vertpath = executableDirectory.string() + "/shader/plain.vert";
     std::string fragpath = executableDirectory.string() + "/shader/plain.frag";
     std::string pickpath = executableDirectory.string() + "/shader/offscreen.frag";
-    std::string highlightpath = executableDirectory.string() + "/shader/highlight.frag";
 
     if (!pickFirstProgram.LoadShader(vertpath, pickpath)) {
         std::cerr << "Load Shader " << vertpath << " " << pickpath << "Failed!";

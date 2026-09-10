@@ -32,6 +32,7 @@
 
 bool isFaceMirror = false;
 bool isNodeMirror = false;
+bool isStreeTest = true;
 
 std::filesystem::path executableDirectory()
 {
@@ -68,6 +69,40 @@ int main(int argc, char* argv[]) {
     if (!xcafImporter.load(path.c_str(), test)) { // "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"
         exit(1);
     }
+
+    if (isStreeTest){
+        // find first leaf node
+        SceneNode* leaf = nullptr;
+        for (auto& root : test.roots) {
+            std::stack<SceneNode*> m_stack;
+            m_stack.push(&root);
+            while (!m_stack.empty()) {
+                SceneNode* curr = m_stack.top();
+                m_stack.pop();
+                if (curr->prototypeIndex.has_value()) {
+                    leaf = curr;
+                    break;
+                }
+                for (auto& child : curr->children) {
+                    m_stack.push(&child);
+                }
+            }
+            if (leaf) break;
+        }
+        uint64_t oriNum = test.numNodes + 1;
+        for (int i = oriNum; i < oriNum + 2048; i++) {
+            const glm::dmat4 offset = glm::translate(glm::dmat4(1.0), glm::dvec3(i * 0.5, 0.0, 0.0));
+            test.roots.push_back(SceneNode());
+            test.roots.back().id = i;
+            test.roots.back().occLabelEntry = leaf->occLabelEntry + "/" + std::to_string(i);;
+            test.roots.back().name = leaf->name + "/" + std::to_string(i);
+            test.roots.back().localTransform = offset * leaf->worldTransform;
+            test.roots.back().worldTransform = test.roots.back().localTransform;
+            test.roots.back().prototypeIndex = leaf->prototypeIndex;
+            test.roots.back().colorStyle = leaf->colorStyle;
+            test.numNodes++;
+        }
+    }
     cadScene.docs.emplace_back(std::move(test));
 
     Controller myWindow;
@@ -101,7 +136,20 @@ int main(int argc, char* argv[]) {
     RenderStats renderStats;
     uint32_t frameCount = 0;
 
+    size_t numPrototype = 0;
+    size_t numSceneNode = 0;
+
     cadScene.getRuntimeNodes(runtimeNodes);
+    for (int i = 0; i<cadScene.docs.size(); i++) {
+        const auto& doc = cadScene.docs[i];
+        for (const auto& prototype : doc.prototypes) {
+            numPrototype++;
+            if (prototype.meshStatus == MeshStatus::Ready) {
+                renderStats.uniquePrototypeTriangles += prototype.mesh.indices.size() / 3;
+            }
+        }
+        numSceneNode += (runtimeNodes[i].size() - 1);
+    }
 
     std::vector<SceneSelection> pickRegistry;
     std::unordered_map<SceneSelection, PickId, SceneSelectionHash> pickMap;
@@ -123,13 +171,9 @@ int main(int argc, char* argv[]) {
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
 
-        if (frameCount >= cpuProfiler.warmupCount){
-            cpuProfiler.start();
-        }
         renderStats.drawCalls = 0;
         renderStats.visibleOccurrences = 0;
         renderStats.submittedTriangles = 0;
-        renderStats.uniquePrototypeTriangles = 0;
         
         int width = 0;
         int height = 0;
@@ -142,10 +186,6 @@ int main(int argc, char* argv[]) {
 
         // Start the Dear ImGui frame
         scenePanel.newFrame();
-
-        size_t numPrototype = 0;
-        size_t numSceneNode = 0;
-
         PickId pickedID = 0;
 
         bool allowViewportMouse = !ImGui::GetIO().WantCaptureMouse;
@@ -154,6 +194,22 @@ int main(int argc, char* argv[]) {
         if (sceneState.sceneStructureDirty){
             // this will not happen for now but ...
             cadScene.getRuntimeNodes(runtimeNodes);
+
+            size_t numPrototype = 0;
+            size_t numSceneNode = 0;
+            renderStats.uniquePrototypeTriangles = 0;
+
+            for (int i = 0; i<cadScene.docs.size(); i++) {
+                const auto& doc = cadScene.docs[i];
+                for (const auto& prototype : doc.prototypes) {
+                    numPrototype++;
+                    if (prototype.meshStatus == MeshStatus::Ready) {
+                        renderStats.uniquePrototypeTriangles += prototype.mesh.indices.size() / 3;
+                    }
+                }
+                numSceneNode += (runtimeNodes[i].size() - 1);
+            }
+
             sceneState.sceneStructureDirty = false;
         }
 
@@ -183,7 +239,14 @@ int main(int argc, char* argv[]) {
 
         glClearColor(0, 0, 0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (frameCount >= cpuProfiler.warmupCount){
+            cpuProfiler.start();
+        }
         sceneRenderer.renderScene(myWindow.GetCamera(), cadScene, sceneState, renderStats);
+        if (frameCount >= cpuProfiler.warmupCount){
+            cpuProfiler.accumulate();
+        }
 
         if (needsInitialFit && sceneState.visibleBounds.valid()){
             myWindow.GetCamera()->fitToBbox(sceneState.visibleBounds);
@@ -243,6 +306,9 @@ int main(int argc, char* argv[]) {
         }
         wasPressed = isPressed;
 
+        if (cpuProfiler.getTotalFrames() >= cpuProfiler.maxCount && cpuProfiler.getTotalFrames() % cpuProfiler.maxCount == 0){
+            renderStats.cpuRenderMilliseconds = cpuProfiler.getAvgTime();
+        }
         // Scene Node
         scenePanel.drawHierachy(cadScene, sceneState);
         {
@@ -275,17 +341,6 @@ int main(int argc, char* argv[]) {
             ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_Always);
             ImGui::Begin("Scene Info");
             ImGui::Text("Hello Dear ImGui!");
-
-            for (int i = 0; i<cadScene.docs.size(); i++) {
-                const auto& doc = cadScene.docs[i];
-                for (const auto& prototype : doc.prototypes) {
-                    numPrototype++;
-                    if (prototype.meshStatus == MeshStatus::Ready) {
-                        renderStats.uniquePrototypeTriangles += prototype.mesh.indices.size() / 3;
-                    }
-                }
-                numSceneNode += (runtimeNodes[i].size() - 1);
-            }
             ImGui::Text("Number of document: %zu", cadScene.docs.size());
             ImGui::Text("Number of prototype: %zu", numPrototype);
             ImGui::Text("Number of node: %zu", numSceneNode);
@@ -296,10 +351,6 @@ int main(int argc, char* argv[]) {
 
             ImGui::Text("Framebuffer width: %d, height: %d", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-
-            if (cpuProfiler.getTotalFrames() > 1 && cpuProfiler.getTotalFrames() % cpuProfiler.maxCount == 1){
-                renderStats.cpuRenderMilliseconds = cpuProfiler.getAvgTime();
-            }
             ImGui::Text("Application average cpu time: %.3f ms", renderStats.cpuRenderMilliseconds);
             ImGui::End();
         }
@@ -316,9 +367,6 @@ int main(int argc, char* argv[]) {
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        if (frameCount >= cpuProfiler.warmupCount){
-            cpuProfiler.accumulate();
-        }
         glfwSwapBuffers(myWindow.GetWindow());
         frameCount++;
     }

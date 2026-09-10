@@ -60,7 +60,7 @@ Controller::Controller(){
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    int width = 1024, height = 1024;
+    int width = 960, height = 960;
     m_window = glfwCreateWindow(width, height, "Scene", nullptr, nullptr);
     if (m_window == nullptr){ glfwTerminate(); }
 

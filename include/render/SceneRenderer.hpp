@@ -6,18 +6,18 @@
 
 #include <glad/glad.h>
 #include "render/GpuMesh.hpp"
+#include "render/ShaderProgram.hpp"
 #include "view/Controller.hpp"
 #include "render/PickingFrameBuffer.hpp"
 #include "profiler/profiler.hpp"
+#include "scene/CadScene.hpp"
+#include <filesystem>
 
 class SceneRenderer {
 public:
     SceneRenderer(const std::filesystem::path& executableDirectory);
-
     void collectObjects(CadScene& cadScene);
-
     void renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats);
-
     bool offscreenPicking(OrbitCamera* const myCamera, PickingFrameBuffer* const pickBuffer, GLFWwindow* myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap);
 
 private:

@@ -8,9 +8,7 @@ struct Bbox
 {
     glm::vec3 minimum;
     glm::vec3 maximum;
-
-    bool outDated = true;
-
+    
     Bbox() {
         minimum = glm::vec3(std::numeric_limits<float>::max());
         maximum = glm::vec3(std::numeric_limits<float>::lowest());

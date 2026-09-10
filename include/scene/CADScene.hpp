@@ -100,7 +100,7 @@ struct SceneNode {
     ResolvedStyle colorStyle;
     std::vector<SceneNode> children;
 
-    mutable bool isVisible = true;
+    bool isVisible = true;
 };
 
 // list of scenenode
@@ -165,4 +165,11 @@ struct CadScene {
 
         return node;
     }
+};
+
+struct SceneRuntimeState {
+    std::optional<SceneSelection> selection;
+    Bbox visibleBounds;
+    bool visibleBoundsDirty = true;
+    bool sceneStructureDirty = true;
 };

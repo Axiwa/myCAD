@@ -98,8 +98,8 @@ bool PickingFrameBuffer::bind(){
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pickFrameBuffer);
 		glViewport(0, 0, m_width, m_height);
 
-        GLuint clearValue = 0;
-        glClearBufferuiv(GL_COLOR, 0, &clearValue);
+        const GLuint clearValue[4] = { 0, 0, 0, 0 };
+        glClearBufferuiv(GL_COLOR, 0, clearValue);
         
         glClearDepth(1.0f);
         glClear(GL_DEPTH_BUFFER_BIT);

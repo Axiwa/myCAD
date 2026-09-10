@@ -44,7 +44,7 @@ public:
         }
     }
 
-    void renderScene(Controller& myWindow, CadScene& cadScene, Bbox& world_bbox, std::optional<SceneSelection>& selection){
+    void renderScene(Controller& myWindow, CadScene& cadScene, SceneRuntimeState& state){
         glClearColor(0, 0, 0, 1.0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -74,7 +74,7 @@ public:
                             if (meshBuffers[i][index].has_value()){
                                 glm::mat4 model = curr->worldTransform;
                                 shaderProgram.setMat4("model", model);
-                                if (selection.has_value() && selection->documentIndex == i && selection->nodeId == curr->id) {
+                                if (state.selection.has_value() && state.selection->documentIndex == i && state.selection->nodeId == curr->id) {
                                     glm::vec4 col = glm::vec4(1, 1, 0, 1);
                                     shaderProgram.setVec4("baseColor", col);
                                 }
@@ -83,11 +83,11 @@ public:
                                 }
                                 
                                 // update scene bbox
-                                if (world_bbox.outDated) {
+                                if (state.visibleBoundsDirty) {
                                     Bbox nodebox = doc.prototypes[index].localBbox;
                                     nodebox.applyTransform(model);
-                                    world_bbox.expand(nodebox.minimum);
-                                    world_bbox.expand(nodebox.maximum);
+                                    state.visibleBounds.expand(nodebox.minimum);
+                                    state.visibleBounds.expand(nodebox.maximum);
                                 }
 
                                 const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;

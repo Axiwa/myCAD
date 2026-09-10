@@ -68,8 +68,6 @@ int main(int argc, char* argv[]) {
     }
     cadScene.docs.emplace_back(std::move(test));
 
-    Bbox world_bbox;
-
     Controller myWindow;
     glfwMakeContextCurrent(myWindow.GetWindow());
 
@@ -95,8 +93,8 @@ int main(int argc, char* argv[]) {
 
     bool isPressed = false;
     bool wasPressed = false;
-    std::optional<SceneSelection> selection;
-    cadScene.getRuntimeNodes(runtimeNodes);
+
+    SceneRuntimeState sceneState;
 
     std::vector<SceneSelection> pickRegistry;
     std::unordered_map<SceneSelection, PickId, SceneSelectionHash> pickMap;
@@ -124,23 +122,30 @@ int main(int argc, char* argv[]) {
 
         PickId pickedID = 0;
 
-        // Start the Dear ImGui frame
-        scenePanel.newFrame();
-
-        if (!myWindow.update(!ImGui::GetIO().WantCaptureMouse)) {
+        bool allowViewportMouse = !ImGui::GetIO().WantCaptureMouse;
+        if (!myWindow.update(allowViewportMouse)) {
             glfwWaitEvents();
             continue;
         }
 
+        // Start the Dear ImGui frame
+        scenePanel.newFrame();
+
         if (ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()) {
-            selection.reset();
+            sceneState.selection.reset();
         }
 
         int width, height;
         glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
 
+        if (sceneState.sceneStructureDirty){
+            // this will not happen now but ...
+            cadScene.getRuntimeNodes(runtimeNodes);
+            sceneState.sceneStructureDirty = false;
+        }
+
         std::optional<mouseCoord> pixelCoord;
-        bool leftPress = myWindow.consumeLeftPress(pixelCoord);
+        bool leftPress = allowViewportMouse && myWindow.consumeLeftPress(pixelCoord);
         if (leftPress && pixelCoord.has_value()){
             sceneRenderer.offscreenPicking(myWindow, cadScene, pickMap);
             pickedID = myWindow.GetPickFramebuffer()->pickID(pixelCoord->x, pixelCoord->y);
@@ -148,38 +153,38 @@ int main(int argc, char* argv[]) {
         }
 
         if (pickedID > 0 && pickedID <= pickRegistry.size()) {
-            selection = pickRegistry[pickedID-1];
+            sceneState.selection = pickRegistry[pickedID-1];
         }
         else {
-            pickedID = 0;
             if (pickedID > pickRegistry.size()) {
                 std::cout << "Pick something wrong!" << std::endl;
             }
+            pickedID = 0;
         }
 
-        if (world_bbox.outDated) {
-            world_bbox.reset();
+        if (sceneState.visibleBoundsDirty) {
+            sceneState.visibleBounds.reset();
         }
-        sceneRenderer.renderScene(myWindow, cadScene, world_bbox, selection);
+        sceneRenderer.renderScene(myWindow, cadScene, sceneState);
 
-        if (needsInitialFit && world_bbox.valid()){
-            myWindow.GetCamera()->fitToBbox(world_bbox);
+        if (needsInitialFit && sceneState.visibleBounds.valid()){
+            myWindow.GetCamera()->fitToBbox(sceneState.visibleBounds);
             needsInitialFit = false;
         }
-        world_bbox.outDated = false;
+        sceneState.visibleBoundsDirty = false;
 
         isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
         if (isPressed && !wasPressed) {
-            myWindow.GetCamera()->fitToBbox(world_bbox);
+            myWindow.GetCamera()->fitToBbox(sceneState.visibleBounds);
         }
         wasPressed = isPressed;
 
         // Scene Node
         {
-            scenePanel.drawHierachy(cadScene, world_bbox, selection);
+            scenePanel.drawHierachy(cadScene, sceneState);
 
-            if (selection.has_value()) {
-                SceneNode* node = cadScene.resolveSelection(selection.value(), runtimeNodes);
+            if (sceneState.selection.has_value()) {
+                SceneNode* node = cadScene.resolveSelection(sceneState.selection.value(), runtimeNodes);
 
                 if (node) {
                     ImGui::SetNextWindowPos(ImVec2((float)width, 0.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
@@ -193,7 +198,7 @@ int main(int argc, char* argv[]) {
                     ImGui::Text("Node visible: %d", node->isVisible);
                     
                     if (node->prototypeIndex.has_value()) {
-                        ImGui::Text("Prototype Name: %s", cadScene.docs[selection->documentIndex].prototypes[node->prototypeIndex.value()].name.c_str());
+                        ImGui::Text("Prototype Name: %s", cadScene.docs[sceneState.selection->documentIndex].prototypes[node->prototypeIndex.value()].name.c_str());
                     }
 
                     ImGui::End();

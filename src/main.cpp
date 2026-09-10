@@ -181,18 +181,31 @@ int main(int argc, char* argv[]) {
                 int docindex = sceneState.selection->documentIndex;
                 int nodeid = sceneState.selection->nodeId;
                 if (docindex < runtimeNodes.size() && nodeid < runtimeNodes[docindex].size()) {
-                    SceneNode* root = runtimeNodes[docindex][nodeid-1];
+                    SceneNode* root = cadScene.resolveSelection(sceneState.selection.value(), runtimeNodes);
                     std::stack<const SceneNode*> m_stack;
-                    m_stack.push(root);
+                    if (root) m_stack.push(root);
                     while (!m_stack.empty()) {
                         const SceneNode* curr = m_stack.top();
                         m_stack.pop();
+                        if (!curr->isVisible){
+                            continue;
+                        }
+
                         if (curr->prototypeIndex.has_value()) {
+                            int prototypeid = curr->prototypeIndex.value();
+                            if (prototypeid >= cadScene.docs[docindex].prototypes.size()){
+                                continue;
+                            }
+                            auto prototype = cadScene.docs[docindex].prototypes[prototypeid];
+                            if (prototype.meshStatus != MeshStatus::Ready ||
+                                !prototype.localBbox.valid()) {
+                                continue;
+                            }
                             glm::mat4 model = curr->worldTransform;
-                             Bbox nodebox = cadScene.docs[docindex].prototypes[curr->prototypeIndex.value()].localBbox;
-                             nodebox.applyTransform(model);
-                             rootbox.expand(nodebox.minimum);
-                             rootbox.expand(nodebox.maximum);
+                            Bbox nodebox = prototype.localBbox;
+                            nodebox.applyTransform(model);
+                            rootbox.expand(nodebox.minimum);
+                            rootbox.expand(nodebox.maximum);
                         }
 
                         for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {

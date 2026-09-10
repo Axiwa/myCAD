@@ -7,7 +7,7 @@
 #include <glad/glad.h>
 #include "render/GpuMesh.hpp"
 #include "render/ShaderProgram.hpp"
-#include "view/Controller.hpp"
+#include "view/OrbitCamera.hpp"
 #include "render/PickingFrameBuffer.hpp"
 #include "profiler/profiler.hpp"
 #include "scene/CadScene.hpp"

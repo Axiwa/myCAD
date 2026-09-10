@@ -89,17 +89,27 @@ int main(int argc, char* argv[]) {
             }
             if (leaf) break;
         }
+        if (!leaf) {
+            std::cerr << "No renderable leaf for stress test\n";
+            return 1;
+        }
+        const auto prototypeIndex = leaf->prototypeIndex;
+        const auto baseTransform = leaf->worldTransform;
+        const auto colorStyle = leaf->colorStyle;
+        const auto baseName = leaf->name;
+        const auto baseEntry = leaf->occLabelEntry;
+
         uint64_t oriNum = test.numNodes + 1;
-        for (int i = oriNum; i < oriNum + 2048; i++) {
+        for (SceneNodeId i = oriNum; i < oriNum + 16384; i++) {
             const glm::dmat4 offset = glm::translate(glm::dmat4(1.0), glm::dvec3(i * 0.5, 0.0, 0.0));
             test.roots.push_back(SceneNode());
             test.roots.back().id = i;
-            test.roots.back().occLabelEntry = leaf->occLabelEntry + "/" + std::to_string(i);;
-            test.roots.back().name = leaf->name + "/" + std::to_string(i);
-            test.roots.back().localTransform = offset * leaf->worldTransform;
+            test.roots.back().occLabelEntry = baseEntry + "/" + std::to_string(i);
+            test.roots.back().name = baseName + "/" + std::to_string(i);
+            test.roots.back().localTransform = offset * baseTransform;
             test.roots.back().worldTransform = test.roots.back().localTransform;
-            test.roots.back().prototypeIndex = leaf->prototypeIndex;
-            test.roots.back().colorStyle = leaf->colorStyle;
+            test.roots.back().prototypeIndex = prototypeIndex;
+            test.roots.back().colorStyle = colorStyle;
             test.numNodes++;
         }
     }
@@ -191,12 +201,12 @@ int main(int argc, char* argv[]) {
         bool allowViewportMouse = !ImGui::GetIO().WantCaptureMouse;
         myWindow.update(allowViewportMouse);
 
+        // this will not happen for now... randomly adding new variables
         if (sceneState.sceneStructureDirty){
-            // this will not happen for now but ...
             cadScene.getRuntimeNodes(runtimeNodes);
 
-            size_t numPrototype = 0;
-            size_t numSceneNode = 0;
+            numPrototype = 0;
+            numSceneNode = 0;
             renderStats.uniquePrototypeTriangles = 0;
 
             for (int i = 0; i<cadScene.docs.size(); i++) {
@@ -351,7 +361,7 @@ int main(int argc, char* argv[]) {
 
             ImGui::Text("Framebuffer width: %d, height: %d", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            ImGui::Text("Application average cpu time: %.3f ms", renderStats.cpuRenderMilliseconds);
+            ImGui::Text("Scene render CPU average: %.3f ms", renderStats.cpuRenderMilliseconds);
             ImGui::End();
         }
 

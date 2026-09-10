@@ -95,6 +95,7 @@ int main(int argc, char* argv[]) {
     bool wasPressed = false;
 
     SceneRuntimeState sceneState;
+    cadScene.getRuntimeNodes(runtimeNodes);
 
     std::vector<SceneSelection> pickRegistry;
     std::unordered_map<SceneSelection, PickId, SceneSelectionHash> pickMap;
@@ -139,7 +140,7 @@ int main(int argc, char* argv[]) {
         glfwGetFramebufferSize(myWindow.GetWindow(), &width, &height);
 
         if (sceneState.sceneStructureDirty){
-            // this will not happen now but ...
+            // this will not happen for now but ...
             cadScene.getRuntimeNodes(runtimeNodes);
             sceneState.sceneStructureDirty = false;
         }
@@ -157,7 +158,7 @@ int main(int argc, char* argv[]) {
         }
         else {
             if (pickedID > pickRegistry.size()) {
-                std::cout << "Pick something wrong!" << std::endl;
+                std::cout << "Pick something not pickable!" << std::endl;
             }
             pickedID = 0;
         }
@@ -175,14 +176,46 @@ int main(int argc, char* argv[]) {
 
         isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
         if (isPressed && !wasPressed) {
-            myWindow.GetCamera()->fitToBbox(sceneState.visibleBounds);
+            if (sceneState.selection.has_value()){
+                Bbox rootbox;
+                int docindex = sceneState.selection->documentIndex;
+                int nodeid = sceneState.selection->nodeId;
+                if (docindex < runtimeNodes.size() && nodeid < runtimeNodes[docindex].size()) {
+                    SceneNode* root = runtimeNodes[docindex][nodeid-1];
+                    std::stack<const SceneNode*> m_stack;
+                    m_stack.push(root);
+                    while (!m_stack.empty()) {
+                        const SceneNode* curr = m_stack.top();
+                        m_stack.pop();
+                        if (curr->prototypeIndex.has_value()) {
+                            glm::mat4 model = curr->worldTransform;
+                             Bbox nodebox = cadScene.docs[docindex].prototypes[curr->prototypeIndex.value()].localBbox;
+                             nodebox.applyTransform(model);
+                             rootbox.expand(nodebox.minimum);
+                             rootbox.expand(nodebox.maximum);
+                        }
+
+                        for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
+                            m_stack.push(&(*it));
+                        }
+                    }
+                }
+                else {
+                    std::cerr << "Select something wrong!" << std::endl;
+                }
+                myWindow.GetCamera()->fitToBbox(rootbox);
+            }
+            else 
+            {
+                myWindow.GetCamera()->fitToBbox(sceneState.visibleBounds);
+            }
+            
         }
         wasPressed = isPressed;
 
         // Scene Node
+        scenePanel.drawHierachy(cadScene, sceneState);
         {
-            scenePanel.drawHierachy(cadScene, sceneState);
-
             if (sceneState.selection.has_value()) {
                 SceneNode* node = cadScene.resolveSelection(sceneState.selection.value(), runtimeNodes);
 

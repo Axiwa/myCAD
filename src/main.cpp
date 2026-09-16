@@ -100,8 +100,9 @@ int main(int argc, char* argv[]) {
         const auto baseEntry = leaf->occLabelEntry;
 
         uint64_t oriNum = test.numNodes + 1;
-        for (SceneNodeId i = oriNum; i < oriNum + 16384; i++) {
-            const glm::dmat4 offset = glm::translate(glm::dmat4(1.0), glm::dvec3(i * 0.5, 0.0, 0.0));
+        uint64_t num = 128;
+        for (SceneNodeId i = oriNum; i < oriNum + num*num; i++) {
+            const glm::dmat4 offset = glm::translate(glm::dmat4(1.0), glm::dvec3((i/num) * 1, (i % num) * 1, 0.0));
             test.roots.push_back(SceneNode());
             test.roots.back().id = i;
             test.roots.back().occLabelEntry = baseEntry + "/" + std::to_string(i);

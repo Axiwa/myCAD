@@ -199,6 +199,10 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         meshBuffers[documentIndex][prototypeIndex].value().draw();
         glDepthFunc(GL_LESS);
         glDepthMask(GL_TRUE);
+
+        auto& mesh = cadScene.docs[documentIndex].prototypes[prototypeIndex].mesh;
+        renderStats.drawCalls++;
+        renderStats.submittedTriangles += mesh.indices.size() / 3;
     }
     wasInstancing = enableInstance;
 }

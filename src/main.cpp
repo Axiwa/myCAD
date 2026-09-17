@@ -33,6 +33,7 @@
 bool isFaceMirror = false;
 bool isNodeMirror = false;
 bool isStreeTest = true;
+bool enableInstance = true;
 
 std::filesystem::path executableDirectory()
 {
@@ -100,7 +101,7 @@ int main(int argc, char* argv[]) {
         const auto baseEntry = leaf->occLabelEntry;
 
         uint64_t oriNum = test.numNodes + 1;
-        uint64_t num = 128;
+        uint64_t num = 256;
         for (SceneNodeId i = oriNum; i < oriNum + num*num; i++) {
             const glm::dmat4 offset = glm::translate(glm::dmat4(1.0), glm::dvec3((i/num) * 1, (i % num) * 1, 0.0));
             test.roots.push_back(SceneNode());
@@ -221,7 +222,7 @@ int main(int argc, char* argv[]) {
                 numSceneNode += (runtimeNodes[i].size() - 1);
             }
 
-            sceneState.sceneStructureDirty = false;
+            sceneState.visibleBoundsDirty = true;
         }
 
         std::optional<mouseCoord> pixelCoord;
@@ -264,6 +265,7 @@ int main(int argc, char* argv[]) {
             needsInitialFit = false;
         }
         sceneState.visibleBoundsDirty = false;
+        sceneState.sceneStructureDirty = false;
 
         isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
         if (isPressed && !wasPressed) {

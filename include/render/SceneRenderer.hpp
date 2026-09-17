@@ -36,11 +36,17 @@ struct RenderItem{
 
 struct RenderBatch {
     GLuint instanceVBO;
+    InstanceKey key;
+    GLsizei instanceCount = 0;
+
     RenderBatch(){
         glGenBuffers(1, &instanceVBO);
     }
     RenderBatch(RenderBatch&& other) noexcept:
-    instanceVBO(std::exchange(other.instanceVBO, 0)) { }
+    instanceVBO(std::exchange(other.instanceVBO, 0)),
+    key(other.key),
+    instanceCount(other.instanceCount)
+    { }
 
     RenderBatch& operator=(RenderBatch&& other) noexcept {
         if (this != &other){
@@ -49,6 +55,8 @@ struct RenderBatch {
                 instanceVBO = 0;
             }
             instanceVBO = std::exchange(other.instanceVBO, 0);
+            key = other.key;
+            instanceCount = other.instanceCount;
         }
         return *this;
     }
@@ -64,7 +72,8 @@ struct RenderBatch {
     }
     void uploadData(std::vector<glm::mat4>& mats){
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-        glBufferData(GL_ARRAY_BUFFER, mats.size() * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW); // orphan
+        // glBufferData(GL_ARRAY_BUFFER, mats.size() * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW); // orphan
+        // glBufferSubData(GL_ARRAY_BUFFER, 0, mats.size() * sizeof(glm::mat4), mats.data());
         glBufferData(GL_ARRAY_BUFFER, mats.size() * sizeof(glm::mat4), mats.data(), GL_DYNAMIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }

@@ -33,7 +33,7 @@
 bool isFaceMirror = false;
 bool isNodeMirror = false;
 bool isStreeTest = true;
-bool enableInstance = true;
+bool enableInstance = false;
 
 std::filesystem::path executableDirectory()
 {

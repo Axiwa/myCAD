@@ -48,10 +48,6 @@ void SceneRenderer::collectObjects(CadScene& cadScene){
 void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats){
     if (state.sceneStructureDirty || state.visibleBoundsDirty){
         renderItems.clear();
-        renderBatches.clear();
-    }
-    if (wasInstancing ^ enableInstance) {
-        renderBatches.clear();
     }
 
     std::optional<RenderItem> selected;
@@ -112,7 +108,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
     }
 
     if (enableInstance){
-        if (state.sceneStructureDirty || state.visibleBoundsDirty){
+        if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing){
             std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
                 return a.key < b.key;
             });
@@ -121,42 +117,47 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         instanceProgram.use();
         instanceProgram.setMat4("view", myCamera->viewMatrix());
         instanceProgram.setMat4("proj", myCamera->projectionMatrix());
-        int left = 0, right = 0;
-        while (left < renderItems.size()) {
-            std::vector<glm::mat4> mats;
-            mats.push_back(renderItems[right].worldTransform);
-            while (right < renderItems.size()-1 && renderItems[right].key == renderItems[right+1].key) {
-                right++;
+
+        if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing) {
+            renderBatches.clear();
+
+            int left = 0, right = 0;
+            while (left < renderItems.size()) {
+                std::vector<glm::mat4> mats;
                 mats.push_back(renderItems[right].worldTransform);
-            }
-            renderBatches.emplace_back();
-            // DRAW from left to right
-            auto& item = renderItems[left];
-            size_t documentIndex = item.key.documentIndex;
-            size_t prototypeIndex = item.key.prototypeIndex;
-            
-            if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing){
-                renderBatches.emplace_back();
-                meshBuffers[documentIndex][prototypeIndex].value().setInstance(renderBatches.back().instanceVBO);
+                while (right < renderItems.size() - 1 && renderItems[right].key == renderItems[right + 1].key) {
+                    right++;
+                    mats.push_back(renderItems[right].worldTransform);
+                }
 
-                // Bind VAOInstanced and Upload data
-                meshBuffers[documentIndex][prototypeIndex].value().bindInstance();
-                renderBatches.back().uploadData(mats);
-                meshBuffers[documentIndex][prototypeIndex].value().unbind();
-            }
+                RenderBatch batch;
+                batch.key = renderItems[right].key;
+                batch.instanceCount = right - left + 1;
+                batch.uploadData(mats);
 
-            bool mirrored = item.key.isMirrored;
+                renderBatches.emplace_back(std::move(batch));
+
+                left = right + 1;
+                right = left;
+            }
+        }
+
+        for (auto& batch : renderBatches) {
+            size_t documentIndex = batch.key.documentIndex;
+            size_t prototypeIndex = batch.key.prototypeIndex;
+
+            meshBuffers[documentIndex][prototypeIndex].value().setInstance(batch.instanceVBO);
+
+            bool mirrored = batch.key.isMirrored;
             glFrontFace(mirrored ? GL_CW : GL_CCW);
+            instanceProgram.setVec4("baseColor", batch.key.color);
 
-            instanceProgram.setVec4("baseColor", item.key.color);
-            
-            meshBuffers[documentIndex][prototypeIndex].value().drawInstance(mats.size());
+            // Bind VAOInstanced and Upload data
+            meshBuffers[documentIndex][prototypeIndex].value().drawInstance(batch.instanceCount);
+
             auto& mesh = cadScene.docs[documentIndex].prototypes[prototypeIndex].mesh;
             renderStats.drawCalls++;
-            renderStats.submittedTriangles += (mesh.indices.size() / 3) * mats.size();
-
-            left = right + 1;
-            right = left;
+            renderStats.submittedTriangles += (mesh.indices.size() / 3) * batch.instanceCount;
         }
     }
     else{
@@ -199,6 +200,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         glDepthFunc(GL_LESS);
         glDepthMask(GL_TRUE);
     }
+    wasInstancing = enableInstance;
 }
 
 bool SceneRenderer::offscreenPicking(OrbitCamera* const myCamera, PickingFrameBuffer* const pickBuffer, GLFWwindow* myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){

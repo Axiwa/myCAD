@@ -13,7 +13,7 @@ number of submitted triangle: 22547968
 
 number of visible occurrences: 65542
 
-number of draw call: 66542
+number of draw call: 65542
 
 Framebuffer size: 960, 960
 
@@ -27,7 +27,7 @@ number of nodes: 65546
 
 number of unique triangle: 1068
 
-number of submitted triangle: 22547968v
+number of submitted triangle: 22547968
 
 number of visible occurrences: 65542
 

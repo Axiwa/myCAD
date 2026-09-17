@@ -13,7 +13,7 @@ public:
     GpuMesh& operator=(GpuMesh&& other) noexcept;
     ~GpuMesh();
     void upload(const MeshData& meshdata);
-    void uploadInstance(std::vector<glm::mat4>& mats);
+    void setInstance(GLuint& instanceVBO);
     void bind();
     void unbind();
     void bindInstance();
@@ -26,7 +26,6 @@ private:
     GLuint VAOInstanced = 0;
     GLuint VBO = 0;
     GLuint EBO = 0;
-    GLuint IBO = 0;
     GLsizei m_indexCount = 0;
     void clear();
 };

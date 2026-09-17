@@ -12,7 +12,6 @@ GpuMesh::GpuMesh(GpuMesh&& other) noexcept:
 VAO(std::exchange(other.VAO, 0)),
 VBO(std::exchange(other.VBO, 0)),
 EBO(std::exchange(other.EBO, 0)),
-IBO(std::exchange(other.IBO, 0)),
 VAOInstanced(std::exchange(other.VAOInstanced, 0)),
 m_indexCount(std::exchange(other.m_indexCount, 0)){
 
@@ -24,7 +23,6 @@ GpuMesh& GpuMesh::operator=(GpuMesh&& other) noexcept{
         VAO = std::exchange(other.VAO, 0);
         VBO = std::exchange(other.VBO, 0);
         EBO = std::exchange(other.EBO, 0);
-        IBO = std::exchange(other.IBO, 0);
         VAOInstanced = std::exchange(other.VAOInstanced, 0);
         m_indexCount = std::exchange(other.m_indexCount, 0);
     }
@@ -73,34 +71,31 @@ void GpuMesh::upload(const MeshData& meshdata){
         glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    glGenBuffers(1, &IBO);
-    glBindBuffer(GL_ARRAY_BUFFER, IBO);
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)0);
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4)));
-        glEnableVertexAttribArray(5);
-        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
-        glEnableVertexAttribArray(6);
-        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
 
-        glVertexAttribDivisor(3, 1);
-        glVertexAttribDivisor(4, 1);
-        glVertexAttribDivisor(5, 1);
-        glVertexAttribDivisor(6, 1);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
+    glEnableVertexAttribArray(5);
+    glEnableVertexAttribArray(6);
+
+    glVertexAttribDivisor(3, 1);
+    glVertexAttribDivisor(4, 1);
+    glVertexAttribDivisor(5, 1);
+    glVertexAttribDivisor(6, 1);
+
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     
     unbind();
 }
 
-void GpuMesh::uploadInstance(std::vector<glm::mat4>& mats){
+void GpuMesh::setInstance(GLuint& instanceVBO){
     bindInstance();
 
-    glBindBuffer(GL_ARRAY_BUFFER, IBO);
-    glBufferData(GL_ARRAY_BUFFER, mats.size() * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW); // orphan
-    glBufferData(GL_ARRAY_BUFFER, mats.size() * sizeof(glm::mat4), mats.data(), GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)0);
+        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(sizeof(glm::vec4)));
+        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(2 * sizeof(glm::vec4)));
+        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)(3 * sizeof(glm::vec4)));
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
 
     unbind();
 }
@@ -161,13 +156,10 @@ void GpuMesh::clear(){
     if (EBO != 0){
         glDeleteBuffers(1, &EBO);
     }
-    if (IBO != 0){
-        glDeleteBuffers(1, &IBO);
-    }
+
     VAO = 0;
     VBO = 0;
     EBO = 0;
     VAOInstanced = 0;
-    IBO = 0;
     m_indexCount = 0;
 }

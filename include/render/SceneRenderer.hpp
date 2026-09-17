@@ -14,8 +14,8 @@
 #include <filesystem>
 
 struct InstanceKey{
-    std::size_t documentIndex;
-    std::size_t prototypeIndex;
+    size_t documentIndex;
+    size_t prototypeIndex;
     glm::vec4 color;
     bool isMirrored;
 
@@ -34,6 +34,42 @@ struct RenderItem{
     glm::mat4 worldTransform;
 };
 
+struct RenderBatch {
+    GLuint instanceVBO;
+    RenderBatch(){
+        glGenBuffers(1, &instanceVBO);
+    }
+    RenderBatch(RenderBatch&& other) noexcept:
+    instanceVBO(std::exchange(other.instanceVBO, 0)) { }
+
+    RenderBatch& operator=(RenderBatch&& other) noexcept {
+        if (this != &other){
+            if (instanceVBO != 0){
+                glDeleteBuffers(1, &instanceVBO);
+                instanceVBO = 0;
+            }
+            instanceVBO = std::exchange(other.instanceVBO, 0);
+        }
+        return *this;
+    }
+    RenderBatch(const RenderBatch& other) = delete;
+    RenderBatch& operator=(const RenderBatch&) = delete;
+
+
+    ~RenderBatch(){
+        if (instanceVBO != 0){
+            glDeleteBuffers(1, &instanceVBO);
+            instanceVBO = 0;
+        }
+    }
+    void uploadData(std::vector<glm::mat4>& mats){
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        glBufferData(GL_ARRAY_BUFFER, mats.size() * sizeof(glm::mat4), nullptr, GL_DYNAMIC_DRAW); // orphan
+        glBufferData(GL_ARRAY_BUFFER, mats.size() * sizeof(glm::mat4), mats.data(), GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+};
+
 class SceneRenderer {
 public:
     SceneRenderer(const std::filesystem::path& executableDirectory);
@@ -42,8 +78,10 @@ public:
     bool offscreenPicking(OrbitCamera* const myCamera, PickingFrameBuffer* const pickBuffer, GLFWwindow* myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap);
 
 private:
+    bool wasInstancing = true;
     std::vector<std::vector<std::optional<GpuMesh>>> meshBuffers;
     std::vector<RenderItem> renderItems;
+    std::vector<RenderBatch> renderBatches;
     ShaderProgram pickFirstProgram;
     ShaderProgram shaderProgram;
     ShaderProgram instanceProgram;

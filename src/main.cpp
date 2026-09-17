@@ -206,6 +206,7 @@ int main(int argc, char* argv[]) {
         // this will not happen for now... randomly adding new variables
         if (sceneState.sceneStructureDirty){
             cadScene.getRuntimeNodes(runtimeNodes);
+            sceneRenderer.collectObjects(cadScene);
 
             numPrototype = 0;
             numSceneNode = 0;
@@ -354,6 +355,7 @@ int main(int argc, char* argv[]) {
             ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_Always);
             ImGui::Begin("Scene Info");
             ImGui::Text("Hello Dear ImGui!");
+            ImGui::Checkbox("Instancing", &enableInstance);
             ImGui::Text("Number of document: %zu", cadScene.docs.size());
             ImGui::Text("Number of prototype: %zu", numPrototype);
             ImGui::Text("Number of node: %zu", numSceneNode);

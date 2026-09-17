@@ -31,6 +31,7 @@ SceneRenderer::SceneRenderer(const std::filesystem::path& executableDirectory){
 }
 
 void SceneRenderer::collectObjects(CadScene& cadScene){
+    meshBuffers.clear();
     meshBuffers.resize(cadScene.docs.size());
     for (int i = 0; i < cadScene.docs.size(); i++) {
         meshBuffers[i].resize(cadScene.docs[i].prototypes.size());
@@ -47,7 +48,12 @@ void SceneRenderer::collectObjects(CadScene& cadScene){
 void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats){
     if (state.sceneStructureDirty || state.visibleBoundsDirty){
         renderItems.clear();
+        renderBatches.clear();
     }
+    if (wasInstancing ^ enableInstance) {
+        renderBatches.clear();
+    }
+
     std::optional<RenderItem> selected;
 
     // Draw cadScene
@@ -123,14 +129,20 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                 right++;
                 mats.push_back(renderItems[right].worldTransform);
             }
+            renderBatches.emplace_back();
             // DRAW from left to right
             auto& item = renderItems[left];
             size_t documentIndex = item.key.documentIndex;
             size_t prototypeIndex = item.key.prototypeIndex;
             
-            if (state.sceneStructureDirty || state.visibleBoundsDirty){
-                // Upload data
-                meshBuffers[documentIndex][prototypeIndex].value().uploadInstance(mats);
+            if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing){
+                renderBatches.emplace_back();
+                meshBuffers[documentIndex][prototypeIndex].value().setInstance(renderBatches.back().instanceVBO);
+
+                // Bind VAOInstanced and Upload data
+                meshBuffers[documentIndex][prototypeIndex].value().bindInstance();
+                renderBatches.back().uploadData(mats);
+                meshBuffers[documentIndex][prototypeIndex].value().unbind();
             }
 
             bool mirrored = item.key.isMirrored;

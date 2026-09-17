@@ -22,6 +22,11 @@ struct InstanceKey{
     bool operator==(const InstanceKey& other) const {
         return documentIndex == other.documentIndex && prototypeIndex == other.prototypeIndex && color == other.color && isMirrored == other.isMirrored;
     }
+
+    bool operator<(const InstanceKey& other) const {
+        return std::tie(documentIndex, prototypeIndex, isMirrored, color.x, color.y, color.z, color.w) <
+               std::tie(other.documentIndex, other.prototypeIndex, other.isMirrored, other.color.x, other.color.y, other.color.z, other.color.w);
+    }
 };
 
 struct RenderItem{

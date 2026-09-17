@@ -70,6 +70,7 @@ void GpuMesh::upload(const MeshData& meshdata){
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+        glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     glGenBuffers(1, &IBO);
@@ -152,7 +153,7 @@ void GpuMesh::clear(){
         glDeleteVertexArrays(1, &VAO);
     }
     if (VAOInstanced != 0) {
-        glDeleteVertexArrays(1, &VAO);
+        glDeleteVertexArrays(1, &VAOInstanced);
     }
     if (VBO != 0){
         glDeleteBuffers(1, &VBO);
@@ -166,5 +167,7 @@ void GpuMesh::clear(){
     VAO = 0;
     VBO = 0;
     EBO = 0;
+    VAOInstanced = 0;
+    IBO = 0;
     m_indexCount = 0;
 }

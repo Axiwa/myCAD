@@ -72,10 +72,9 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                         if (meshBuffers[i][index].has_value()){
                             glm::mat4 model = curr->worldTransform;
                             const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
-                            glm::vec4 col = curr->colorStyle.surfaceColor;
 
                             if (state.selection.has_value() && state.selection->documentIndex == i && state.selection->nodeId == curr->id) {
-                                col = glm::vec4(1, 1, 0, 1);
+                                glm::vec4 col = glm::vec4(1, 1, 0, 1);
                                 selected.emplace();
                                 InstanceKey key{ i, index, col, mirrored };
                                 selected->key = key;
@@ -89,7 +88,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                                 state.visibleBounds.expand(nodebox.minimum);
                                 state.visibleBounds.expand(nodebox.maximum);
 
-                                InstanceKey key {i, index, col, mirrored};
+                                InstanceKey key {i, index, curr->colorStyle.surfaceColor, mirrored};
                                 RenderItem item {key, curr->worldTransform};
                                 renderItems.emplace_back(item);
                             }
@@ -109,24 +108,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
     if (enableInstance){
         if (state.sceneStructureDirty || state.visibleBoundsDirty){
             std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
-                if (a.key.documentIndex < b.key.documentIndex) { return true; }
-                else if (a.key.documentIndex > b.key.documentIndex) { return false; }
-                if (a.key.prototypeIndex < b.key.prototypeIndex) {return true;}
-                else if (a.key.prototypeIndex > b.key.prototypeIndex) {return false;}
-                if (a.key.isMirrored == false && b.key.isMirrored == true) {return true;}
-                else if (a.key.isMirrored == false && b.key.isMirrored == false) {return false;}
-
-                if (a.key.color.x < b.key.color.x) {return true; }
-                else if (a.key.color.x > b.key.color.x) {return false; }
-
-                if (a.key.color.y < b.key.color.y) {return true; }
-                else if (a.key.color.y > b.key.color.y) {return false; }
-
-                if (a.key.color.z < b.key.color.z) {return true; }
-                else if (a.key.color.z > b.key.color.z) {return false; }
-
-                if (a.key.color.w < b.key.color.w) {return true; }
-                else if (a.key.color.w > b.key.color.w) {return false; }
+                return a.key < b.key;
             });
         }
 
@@ -159,7 +141,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
             meshBuffers[documentIndex][prototypeIndex].value().drawInstance(mats.size());
             auto& mesh = cadScene.docs[documentIndex].prototypes[prototypeIndex].mesh;
             renderStats.drawCalls++;
-            renderStats.submittedTriangles += mesh.indices.size() / 3;
+            renderStats.submittedTriangles += (mesh.indices.size() / 3) * mats.size();
 
             left = right + 1;
             right = left;
@@ -197,11 +179,13 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         bool mirrored = item.key.isMirrored;
         glFrontFace(mirrored ? GL_CW : GL_CCW);
 
-        glDisable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        glDepthMask(GL_FALSE);
         shaderProgram.setMat4("model", item.worldTransform);
         shaderProgram.setVec4("baseColor", item.key.color);
         meshBuffers[documentIndex][prototypeIndex].value().draw();
-        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glDepthMask(GL_TRUE);
     }
 }
 

@@ -33,7 +33,7 @@
 bool isFaceMirror = false;
 bool isNodeMirror = false;
 bool isStreeTest = true;
-bool enableInstance = false;
+bool enableInstance = true;
 
 std::filesystem::path executableDirectory()
 {
@@ -110,6 +110,9 @@ int main(int argc, char* argv[]) {
             test.roots.back().name = baseName + "/" + std::to_string(i);
             test.roots.back().localTransform = offset * baseTransform;
             test.roots.back().worldTransform = test.roots.back().localTransform;
+            if (i % 2 == 0){
+                test.roots.back().worldTransform[0] = -test.roots.back().worldTransform[0]; 
+            }
             test.roots.back().prototypeIndex = prototypeIndex;
             test.roots.back().colorStyle = colorStyle;
             test.numNodes++;

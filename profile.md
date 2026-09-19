@@ -17,11 +17,11 @@ number of draw call: 65542
 
 Framebuffer size: 960, 960
 
-RenderScene avg cpu time: 26.5 ms (平均)
+RenderScene avg cpu time: 24.5 ms (平均)
 
 ![alt text](no-opt.png)
 
-## 优化后
+## Instancing 优化后
 
 number of nodes: 65546
 
@@ -35,6 +35,6 @@ number of draw call: 2
 
 Framebuffer size: 960, 960
 
-RenderScene avg cpu time: 16.5 ms (平均)
+RenderScene avg cpu time: 12.5 ms (平均)
 
 ![alt text](opt1.png)

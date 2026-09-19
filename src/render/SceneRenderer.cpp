@@ -85,8 +85,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                             
                             // update scene bbox
                             if (state.sceneStructureDirty || state.visibleBoundsDirty) {
-                                Bbox nodebox = doc.prototypes[index].localBbox;
-                                nodebox.applyTransform(model);
+                                Bbox nodebox = curr->bbox; // bbox has been updated
                                 state.visibleBounds.expand(nodebox.minimum);
                                 state.visibleBounds.expand(nodebox.maximum);
 

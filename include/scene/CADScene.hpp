@@ -101,6 +101,8 @@ struct SceneNode {
     std::vector<SceneNode> children;
 
     bool isVisible = true;
+    bool isTransformDirty = true;
+    Bbox bbox;
 };
 
 // list of scenenode
@@ -139,6 +141,19 @@ struct CadScene {
                     SceneNode* curr = m_stack.top();
                     m_stack.pop();
                     runtimeNodes[i][curr->id] = curr;
+
+                    // Update renderable bbox
+                    if (curr->prototypeIndex.has_value()) {
+                        auto index = curr->prototypeIndex.value();
+                        if (index < doc.prototypes.size()) {
+                            if (doc.prototypes[index].meshStatus == MeshStatus::Ready){
+                                Bbox nodebox = doc.prototypes[index].localBbox;
+                                nodebox.applyTransform(curr->worldTransform);
+                                curr->bbox = nodebox;
+                                curr->isTransformDirty = false;
+                            }
+                        }
+                    }
 
                     for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
                         m_stack.push(&(*it));

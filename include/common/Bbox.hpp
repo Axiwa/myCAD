@@ -42,6 +42,9 @@ struct Bbox
     }
 
     void applyTransform(const glm::mat4& transform){
+        if (!valid()){
+            return;
+        }
         glm::vec3 two[2] = {minimum, maximum};
         reset();
         for(uint8_t i = 0; i < 8; i++){

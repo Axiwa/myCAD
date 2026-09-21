@@ -120,6 +120,9 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         if (myCamera->inFrustum(minimum) && myCamera->inFrustum(maximum)){
             culledItems.emplace_back(item);
         }
+        else{
+            renderStats.culledOccurrences++;
+        }
     }
 
     if (enableInstance){

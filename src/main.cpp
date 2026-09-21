@@ -189,6 +189,7 @@ int main(int argc, char* argv[]) {
         renderStats.drawCalls = 0;
         renderStats.visibleOccurrences = 0;
         renderStats.submittedTriangles = 0;
+        renderStats.culledOccurrences = 0;
         
         int width = 0;
         int height = 0;
@@ -365,6 +366,7 @@ int main(int argc, char* argv[]) {
             ImGui::Text("Number of unique triangle: %zu", renderStats.uniquePrototypeTriangles);
             ImGui::Text("Number of submitted triangles: %zu", renderStats.submittedTriangles);
             ImGui::Text("Number of visible occurrences: %zu", renderStats.visibleOccurrences);
+            ImGui::Text("Number of culled occurrences: %zu", renderStats.culledOccurrences);
             ImGui::Text("Number of draw calls: %zu", renderStats.drawCalls);
 
             ImGui::Text("Framebuffer width: %d, height: %d", width, height);

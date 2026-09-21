@@ -47,6 +47,6 @@ private:
 
     glm::mat4 m_projection{1.0f};
     bool isProjectionDirty = false;
-    bool isViewDirty = false;
+    bool isFrustumDirty = false;
     glm::vec4 m_frustum[6];
 };

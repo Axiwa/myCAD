@@ -44,20 +44,20 @@ glm::mat4 OrbitCamera::projectionMatrix() {
 void OrbitCamera::yaw(float angle){
     const glm::quat delta = glm::angleAxis(angle, glm::vec3(0.0, 1.0, 0.0));
     orientation_ = glm::normalize(delta * orientation_);
-    isViewDirty = true;
+    isFrustumDirty = true;
 }
 
 void OrbitCamera::pitch(float angle){
     const glm::quat delta = glm::angleAxis(angle, glm::vec3(1.0, 0.0, 0.0));
     orientation_ = glm::normalize(orientation_ * delta);
-    isViewDirty = true;
+    isFrustumDirty = true;
 }
 
 void OrbitCamera::dolly(float times){
     distance_ *= times;
     distance_ = std::max(distance_, 0.01f);
     isProjectionDirty = true;
-    isViewDirty = true;
+    isFrustumDirty = true;
 }
 
 void OrbitCamera::pan(float dx, float dy){
@@ -65,7 +65,7 @@ void OrbitCamera::pan(float dx, float dy){
     glm::vec3 rightdir = orientation_ * glm::vec3(1.0f, 0.0f, 0.0f);
     float worldUnit = 2.0f * distance_ * std::tan(fov_ * 0.5f) / viewHeight_;
     target_ += (-rightdir * dx + updir * dy) * worldUnit;
-    isViewDirty = true;
+    isFrustumDirty = true;
 }
 
 void OrbitCamera::orbit(float dx, float dy){
@@ -78,24 +78,28 @@ void OrbitCamera::setViewport(int width, int height){
         viewWidth_ = width;
         viewHeight_ = height;
         isProjectionDirty = true;
+        isFrustumDirty = true;
     }
 }
 void OrbitCamera::setFOV(float fov){
     fov_ = fov;
     isProjectionDirty = true;
+    isFrustumDirty = true;
 }
 void OrbitCamera::setNear(float near){
     near_ = near;
     isProjectionDirty = true;
+    isFrustumDirty = true;
 }
 void OrbitCamera::setFar(float far){
     far_ = far;
     isProjectionDirty = true;
+    isFrustumDirty = true;
 }
 void OrbitCamera::setDistance(float distance){
     distance_ = std::max(0.01f, distance);
     isProjectionDirty = true;
-    isViewDirty = true;
+    isFrustumDirty = true;
 }
 
 void OrbitCamera::GetViewport(int& width, int& height) const {
@@ -122,11 +126,11 @@ void OrbitCamera::fitToBbox(const Bbox& bbox){
     //far_ = distance_ + 2 * radius;
 
     isProjectionDirty = true;
-    isViewDirty = true;
+    isFrustumDirty = true;
 }
 
 bool OrbitCamera::calculateFrumstum(){
-    if (isProjectionDirty || isViewDirty){
+    if (isProjectionDirty || isFrustumDirty){
         glm::mat4 pv = projectionMatrix() * viewMatrix();
         float length;
         m_frustum[0] = glm::row(pv, 3) - glm::row(pv, 1);
@@ -139,7 +143,7 @@ bool OrbitCamera::calculateFrumstum(){
             length = glm::length(glm::vec3(m_frustum[i]));
             m_frustum[i] /= glm::max(length, 0.0001f);
         }
-        isViewDirty = false;
+        isFrustumDirty = false;
         return true;
     }
     else {
@@ -154,7 +158,7 @@ bool OrbitCamera::inFrustum(const Bbox& bbox){
     for(int i = 0; i<6; i++){
         glm::vec3 plane = m_frustum[i];
         float distance = glm::dot(plane, center) + m_frustum[i].w;
-        float radius = glm::abs(glm::dot(plane, extent));
+        float radius = glm::dot(glm::abs(plane), extent);
         if (distance + radius < 0.0f){
             in = false;
             break;
@@ -164,9 +168,9 @@ bool OrbitCamera::inFrustum(const Bbox& bbox){
 }
 
 bool OrbitCamera::isDirty(){
-    return isProjectionDirty || isViewDirty;
+    return isFrustumDirty;
 }
 
 void OrbitCamera::setDirty(){
-    isViewDirty = true;
+    isFrustumDirty = true;
 }

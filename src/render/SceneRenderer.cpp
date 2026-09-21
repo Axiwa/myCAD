@@ -203,7 +203,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         shaderProgram.setMat4("proj", myCamera->projectionMatrix());
 
         auto& item = selected.value();
-        if (myCamera->inFrustum(item.nodebbox)) {
+        if (!enableCulling || myCamera->inFrustum(item.nodebbox)) {
             size_t documentIndex = item.key.documentIndex;
             size_t prototypeIndex = item.key.prototypeIndex;
             bool mirrored = item.key.isMirrored;

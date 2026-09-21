@@ -102,7 +102,7 @@ struct SceneNode {
 
     bool isVisible = true;
     bool isTransformDirty = true;
-    Bbox bbox;
+    Bbox worldBbox;
 };
 
 // list of scenenode
@@ -149,7 +149,7 @@ struct CadScene {
                             if (doc.prototypes[index].meshStatus == MeshStatus::Ready){
                                 Bbox nodebox = doc.prototypes[index].localBbox;
                                 nodebox.applyTransform(curr->worldTransform);
-                                curr->bbox = nodebox;
+                                curr->worldBbox = nodebox;
                                 curr->isTransformDirty = false;
                             }
                         }

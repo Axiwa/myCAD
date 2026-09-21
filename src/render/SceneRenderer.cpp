@@ -85,7 +85,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                             
                             // update scene bbox
                             if (state.sceneStructureDirty || state.visibleBoundsDirty) {
-                                Bbox nodebox = curr->bbox; // bbox has been updated
+                                Bbox nodebox = curr->worldBbox; // bbox has been updated
                                 state.visibleBounds.expand(nodebox.minimum);
                                 state.visibleBounds.expand(nodebox.maximum);
 

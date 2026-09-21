@@ -31,10 +31,28 @@ number of submitted triangle: 22547968
 
 number of visible occurrences: 65542
 
-number of draw call: 2
+number of draw call: 3 (streetest中有正反两种)
 
 Framebuffer size: 960, 960
 
 RenderScene avg cpu time: 12.5 ms (平均)
 
 ![alt text](opt1.png)
+
+## Frustum culling 后
+
+number of nodes: 65546
+
+number of unique triangle: 1068
+
+number of submitted triangle: 0
+
+number of visible occurrences: 65542
+
+number of culled occurrences: 65542
+
+number of draw call: 0
+
+Framebuffer size: 960, 960
+
+RenderScene avg cpu time: 8.8 ms (平均)

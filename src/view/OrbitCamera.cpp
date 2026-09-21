@@ -129,7 +129,7 @@ void OrbitCamera::fitToBbox(const Bbox& bbox){
     isFrustumDirty = true;
 }
 
-bool OrbitCamera::calculateFrumstum(){
+bool OrbitCamera::calculateFrustum(){
     if (isProjectionDirty || isFrustumDirty){
         glm::mat4 pv = projectionMatrix() * viewMatrix();
         float length;

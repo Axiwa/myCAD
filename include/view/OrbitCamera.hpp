@@ -28,7 +28,7 @@ public:
     void GetViewport(int& width, int& height) const;
 
     void fitToBbox(const Bbox& bbox);
-    bool calculateFrumstum();
+    bool calculateFrustum();
     bool inFrustum(const Bbox& bbox);
     bool isDirty();
     void setDirty();

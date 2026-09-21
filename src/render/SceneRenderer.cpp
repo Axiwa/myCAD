@@ -115,7 +115,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         });
     }
 
-    bool isChanged = myCamera->calculateFrumstum();
+    bool isChanged = myCamera->calculateFrustum();
     if (enableCulling){
         for(auto& item: renderItems){
             if (myCamera->inFrustum(item.nodebbox)){

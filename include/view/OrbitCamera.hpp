@@ -28,9 +28,10 @@ public:
     void GetViewport(int& width, int& height) const;
 
     void fitToBbox(const Bbox& bbox);
-    void calculateFrumstum();
-    bool inFrustum(const glm::vec4& point);
+    bool calculateFrumstum();
+    bool inFrustum(const Bbox& bbox);
     bool isDirty();
+    void setDirty();
 
 private:
     glm::vec3 target_{0.0f};

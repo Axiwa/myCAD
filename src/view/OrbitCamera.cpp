@@ -125,23 +125,37 @@ void OrbitCamera::fitToBbox(const Bbox& bbox){
     isViewDirty = true;
 }
 
-void OrbitCamera::calculateFrumstum(){
+bool OrbitCamera::calculateFrumstum(){
     if (isProjectionDirty || isViewDirty){
         glm::mat4 pv = projectionMatrix() * viewMatrix();
-        m_frustum[0] = glm::normalize(glm::row(pv, 3) - glm::row(pv, 1));
-        m_frustum[1] = glm::normalize(glm::row(pv, 3) + glm::row(pv, 1));
-        m_frustum[2] = glm::normalize(glm::row(pv, 3) - glm::row(pv, 0));
-        m_frustum[3] = glm::normalize(glm::row(pv, 3) + glm::row(pv, 0));
-        m_frustum[4] = glm::normalize(glm::row(pv, 3) - glm::row(pv, 2));
-        m_frustum[5] = glm::normalize(glm::row(pv, 3) + glm::row(pv, 2));
+        float length;
+        m_frustum[0] = glm::row(pv, 3) - glm::row(pv, 1);
+        m_frustum[1] = glm::row(pv, 3) + glm::row(pv, 1);
+        m_frustum[2] = glm::row(pv, 3) - glm::row(pv, 0);
+        m_frustum[3] = glm::row(pv, 3) + glm::row(pv, 0);
+        m_frustum[4] = glm::row(pv, 3) - glm::row(pv, 2);
+        m_frustum[5] = glm::row(pv, 3) + glm::row(pv, 2);
+        for(int i = 0; i<6; i++){
+            length = glm::length(glm::vec3(m_frustum[i]));
+            m_frustum[i] /= glm::max(length, 0.0001f);
+        }
+        isViewDirty = false;
+        return true;
     }
-    isViewDirty = true;
+    else {
+        return false;
+    }
 }
 
-bool OrbitCamera::inFrustum(const glm::vec4& point){
+bool OrbitCamera::inFrustum(const Bbox& bbox){
     bool in = true;
+    glm::vec3 center = bbox.center();
+    glm::vec3 extent = (bbox.maximum - bbox.minimum) * 0.5f;
     for(int i = 0; i<6; i++){
-        if (glm::dot(m_frustum[i], point) < 0){
+        glm::vec3 plane = m_frustum[i];
+        float distance = glm::dot(plane, center) + m_frustum[i].w;
+        float radius = glm::abs(glm::dot(plane, extent));
+        if (distance + radius < 0.0f){
             in = false;
             break;
         }
@@ -151,4 +165,8 @@ bool OrbitCamera::inFrustum(const glm::vec4& point){
 
 bool OrbitCamera::isDirty(){
     return isProjectionDirty || isViewDirty;
+}
+
+void OrbitCamera::setDirty(){
+    isViewDirty = true;
 }

@@ -34,6 +34,7 @@ bool isFaceMirror = false;
 bool isNodeMirror = false;
 bool isStreeTest = true;
 bool enableInstance = true;
+bool enableCulling = false;
 
 std::filesystem::path executableDirectory()
 {
@@ -360,6 +361,10 @@ int main(int argc, char* argv[]) {
             ImGui::Begin("Scene Info");
             ImGui::Text("Hello Dear ImGui!");
             ImGui::Checkbox("Instancing", &enableInstance);
+            bool cullingChange = ImGui::Checkbox("Culling", &enableCulling);
+            if (cullingChange) {
+                myWindow.GetCamera()->setDirty();
+            }
             ImGui::Text("Number of document: %zu", cadScene.docs.size());
             ImGui::Text("Number of prototype: %zu", numPrototype);
             ImGui::Text("Number of node: %zu", numSceneNode);

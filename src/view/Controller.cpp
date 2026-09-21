@@ -64,7 +64,7 @@ Controller::Controller(){
     m_window = glfwCreateWindow(width, height, "Scene", nullptr, nullptr);
     if (m_window == nullptr){ glfwTerminate(); }
 
-    m_camera = new OrbitCamera(width, height);
+    m_camera = new OrbitCamera(width, height, 0.7854f, 0.1f, 700.0f);
     m_pickBuffer = new PickingFrameBuffer();
 
     glfwMakeContextCurrent(m_window);
@@ -120,9 +120,7 @@ bool Controller::update(bool allowCameraInput){
             m_camera->orbit(dphi, dtheta);
         }
     }
-
-    m_camera->calculateFrumstum();
-
+    
     m_input.previousMouseX = m_input.mouseX;
     m_input.previousMouseY = m_input.mouseY;
     m_input.scrollDelta = 0;

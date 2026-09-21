@@ -28,6 +28,9 @@ public:
     void GetViewport(int& width, int& height) const;
 
     void fitToBbox(const Bbox& bbox);
+    void calculateFrumstum();
+    bool inFrustum(const glm::vec4& point);
+    bool isDirty();
 
 private:
     glm::vec3 target_{0.0f};
@@ -43,4 +46,6 @@ private:
 
     glm::mat4 m_projection{1.0f};
     bool isProjectionDirty = false;
+    bool isViewDirty = false;
+    glm::vec4 m_frustum[6];
 };

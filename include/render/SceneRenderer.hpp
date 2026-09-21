@@ -32,6 +32,7 @@ struct InstanceKey{
 struct RenderItem{
     InstanceKey key;
     glm::mat4 worldTransform;
+    Bbox nodebbox;
 };
 
 struct RenderBatch {
@@ -91,6 +92,7 @@ private:
     std::vector<std::vector<std::optional<GpuMesh>>> meshBuffers;
     std::vector<RenderItem> renderItems;
     std::vector<RenderBatch> renderBatches;
+    std::vector<RenderItem> culledItems;
     ShaderProgram pickFirstProgram;
     ShaderProgram shaderProgram;
     ShaderProgram instanceProgram;

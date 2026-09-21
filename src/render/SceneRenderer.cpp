@@ -46,6 +46,7 @@ void SceneRenderer::collectObjects(CadScene& cadScene){
 }
 
 void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats){
+    culledItems.clear();
     if (state.sceneStructureDirty || state.visibleBoundsDirty){
         renderItems.clear();
     }
@@ -90,7 +91,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                                 state.visibleBounds.expand(nodebox.maximum);
 
                                 InstanceKey key {i, index, curr->colorStyle.surfaceColor, mirrored};
-                                RenderItem item {key, curr->worldTransform};
+                                RenderItem item {key, curr->worldTransform, nodebox};
                                 renderItems.emplace_back(item);
                             }
 
@@ -106,31 +107,40 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         }
     }
 
-    if (enableInstance){
-        if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing){
-            std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
-                return a.key < b.key;
-            });
-        }
+    if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing){
+        std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
+            return a.key < b.key;
+        });
+    }
 
+    for(auto& item: renderItems){
+        glm::vec4 minimum = glm::vec4(item.nodebbox.minimum, 1);
+        glm::vec4 maximum = glm::vec4(item.nodebbox.maximum, 1);
+        
+        if (myCamera->inFrustum(minimum) && myCamera->inFrustum(maximum)){
+            culledItems.emplace_back(item);
+        }
+    }
+
+    if (enableInstance){
         instanceProgram.use();
         instanceProgram.setMat4("view", myCamera->viewMatrix());
         instanceProgram.setMat4("proj", myCamera->projectionMatrix());
 
-        if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing) {
+        if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing || myCamera->isDirty()) {
             renderBatches.clear();
 
             int left = 0, right = 0;
-            while (left < renderItems.size()) {
+            while (left < culledItems.size()) {
                 std::vector<glm::mat4> mats;
-                mats.push_back(renderItems[right].worldTransform);
-                while (right < renderItems.size() - 1 && renderItems[right].key == renderItems[right + 1].key) {
+                mats.push_back(culledItems[right].worldTransform);
+                while (right < culledItems.size() - 1 && culledItems[right].key == culledItems[right + 1].key) {
                     right++;
-                    mats.push_back(renderItems[right].worldTransform);
+                    mats.push_back(culledItems[right].worldTransform);
                 }
 
                 RenderBatch batch;
-                batch.key = renderItems[right].key;
+                batch.key = culledItems[right].key;
                 batch.instanceCount = right - left + 1;
                 batch.uploadData(mats);
 
@@ -163,7 +173,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         shaderProgram.use();
         shaderProgram.setMat4("view", myCamera->viewMatrix());
         shaderProgram.setMat4("proj", myCamera->projectionMatrix());
-        for(auto& item: renderItems){
+        for(auto& item: culledItems){
             size_t documentIndex = item.key.documentIndex;
             size_t prototypeIndex = item.key.prototypeIndex;
             bool mirrored = item.key.isMirrored;

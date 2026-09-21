@@ -121,6 +121,8 @@ bool Controller::update(bool allowCameraInput){
         }
     }
 
+    m_camera->calculateFrumstum();
+
     m_input.previousMouseX = m_input.mouseX;
     m_input.previousMouseY = m_input.mouseY;
     m_input.scrollDelta = 0;

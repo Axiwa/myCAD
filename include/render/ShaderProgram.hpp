@@ -25,6 +25,7 @@ public:
     void use();
     void setUint(const std::string& name, const uint32_t& value) const;
     void setInt(const std::string& name, const int& value) const;
+    void setFloat(const std::string& name, const float& value) const;
     void setMat4(const std::string& name, const glm::mat4& mat) const;
     void setVec3(const std::string& name, const glm::vec3& vec3) const;
     void setVec4(const std::string& name, const glm::vec4& vec4) const;

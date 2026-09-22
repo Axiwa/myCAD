@@ -22,6 +22,7 @@
 #include "asset/StepXcafImporter.hpp"
 #include "ui/ScenePanel.hpp"
 #include "profiler/profiler.hpp"
+#include "geometry/Design.hpp"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -32,7 +33,7 @@
 
 bool isFaceMirror = false;
 bool isNodeMirror = false;
-bool isStreeTest = true;
+bool isStreeTest = false;
 bool enableInstance = true;
 bool enableCulling = false;
 
@@ -59,7 +60,7 @@ int main(int argc, char* argv[]) {
     bool needsInitialFit = true;
 
     CadDocument test;
-    std::string path = "C:/Users/28025/Learn/model/chassis.step";
+    std::string path = "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"; // "C:/Users/28025/Learn/model/chassis.step"
     if (argc > 1) {
         path = argv[1];
         std::cout << "Import path: " << path << std::endl;
@@ -136,6 +137,7 @@ int main(int argc, char* argv[]) {
     // IMGUI
     ScenePanel scenePanel(myWindow.GetWindow(), exePath);
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+    DraftAnalysisSettings draftSetting;
 
     // Create mesh buffers for cadScene
     SceneRenderer sceneRenderer(exePath);
@@ -261,7 +263,7 @@ int main(int argc, char* argv[]) {
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.start();
         }
-        sceneRenderer.renderScene(myWindow.GetCamera(), cadScene, sceneState, renderStats);
+        sceneRenderer.renderScene(myWindow.GetCamera(), cadScene, sceneState, renderStats, draftSetting);
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.accumulate();
         }
@@ -336,7 +338,7 @@ int main(int argc, char* argv[]) {
 
                 if (node) {
                     ImGui::SetNextWindowPos(ImVec2((float)width, 0.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-                    ImGui::SetNextWindowSize(ImVec2(250.0f, 200.0f), ImGuiCond_Always);
+                    ImGui::SetNextWindowSize(ImVec2(250.0f, 200.0f), ImGuiCond_Once);
                     ImGui::Begin("Node Info");
 
                     ImGui::Text("Node name: %s", node->name.c_str());
@@ -357,7 +359,7 @@ int main(int argc, char* argv[]) {
         // Info
         {
             ImGui::SetNextWindowPos(ImVec2(0.0f, (float)height), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
-            ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_Once);
             ImGui::Begin("Scene Info");
             ImGui::Text("Hello Dear ImGui!");
             ImGui::Checkbox("Instancing", &enableInstance);
@@ -377,6 +379,25 @@ int main(int argc, char* argv[]) {
             ImGui::Text("Framebuffer width: %d, height: %d", width, height);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::Text("Scene render CPU average: %.3f ms", renderStats.cpuRenderMilliseconds);
+            ImGui::End();
+        }
+        {
+            ImGui::SetNextWindowPos(ImVec2((float)width, (float)height), ImGuiCond_Always, ImVec2(1.0f, 1.0f));
+            ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_Once);
+            ImGui::Begin("Analysis");
+            ImGui::Checkbox("DraftAngle Analysis", &draftSetting.enabled);
+            if (draftSetting.enabled){
+                ImGui::Text("Pull Direction");
+                if (ImGui::Button("+X")) { draftSetting.pullDirection[0] = 1.0f; draftSetting.pullDirection[1] = 0.0f; draftSetting.pullDirection[2] = 0.0f; } ImGui::SameLine();
+                if (ImGui::Button("-X")) { draftSetting.pullDirection[0] = -1.0f; draftSetting.pullDirection[1] = 0.0f; draftSetting.pullDirection[2] = 0.0f; } ImGui::SameLine();
+                if (ImGui::Button("+Y")) { draftSetting.pullDirection[0] = 0.0f; draftSetting.pullDirection[1] = 1.0f; draftSetting.pullDirection[2] = 0.0f; } ImGui::SameLine();
+                if (ImGui::Button("-Y")) { draftSetting.pullDirection[0] = 0.0f; draftSetting.pullDirection[1] = -1.0f; draftSetting.pullDirection[2] = 0.0f; } ImGui::SameLine();
+                if (ImGui::Button("+Z")) { draftSetting.pullDirection[0] = 0.0f; draftSetting.pullDirection[1] = 0.0f; draftSetting.pullDirection[2] = 1.0f; } ImGui::SameLine();
+                if (ImGui::Button("-Z")) { draftSetting.pullDirection[0] = 0.0f; draftSetting.pullDirection[1] = 0.0f; draftSetting.pullDirection[2] = -1.0f; }
+
+                ImGui::DragFloat("Angle Threshold", &draftSetting.requiredAngleDegrees);
+            }
+
             ImGui::End();
         }
 

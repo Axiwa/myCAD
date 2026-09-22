@@ -11,6 +11,7 @@
 #include "render/PickingFrameBuffer.hpp"
 #include "profiler/profiler.hpp"
 #include "scene/CadScene.hpp"
+#include "geometry/Design.hpp"
 #include <filesystem>
 
 struct InstanceKey{
@@ -84,7 +85,7 @@ class SceneRenderer {
 public:
     SceneRenderer(const std::filesystem::path& executableDirectory);
     void collectObjects(CadScene& cadScene);
-    void renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats);
+    void renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, const DraftAnalysisSettings& draftSetting);
     bool offscreenPicking(OrbitCamera* const myCamera, PickingFrameBuffer* const pickBuffer, GLFWwindow* myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap);
 
 private:

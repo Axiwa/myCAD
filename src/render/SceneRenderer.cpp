@@ -19,15 +19,16 @@ SceneRenderer::SceneRenderer(const std::filesystem::path& executableDirectory){
     std::string vertinstancepath = executableDirectory.string() + "/shader/plain_instance.vert";
     std::string fragpath = executableDirectory.string() + "/shader/plain.frag";
     std::string pickpath = executableDirectory.string() + "/shader/offscreen.frag";
+    std::string draftpath = executableDirectory.string() + "/shader/draft.frag";
 
     if (!pickFirstProgram.LoadShader(vertpath, pickpath)) {
         std::cerr << "Load Shader " << vertpath << " " << pickpath << "Failed!";
     }
-    if (!shaderProgram.LoadShader(vertpath, fragpath)){
-        std::cerr << "Load Shader " << vertpath << " " << fragpath << "Failed!";
+    if (!shaderProgram.LoadShader(vertpath, draftpath)){
+        std::cerr << "Load Shader " << vertpath << " " << draftpath << "Failed!";
     }
-    if (!instanceProgram.LoadShader(vertinstancepath, fragpath)){
-        std::cerr << "Load Shader " << vertinstancepath << " " << fragpath << "Failed!";
+    if (!instanceProgram.LoadShader(vertinstancepath, draftpath)){
+        std::cerr << "Load Shader " << vertinstancepath << " " << draftpath << "Failed!";
     }
 }
 
@@ -46,7 +47,7 @@ void SceneRenderer::collectObjects(CadScene& cadScene){
     }
 }
 
-void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats){
+void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, const DraftAnalysisSettings& draftSetting){
     drawableItems.clear();
     if (state.sceneStructureDirty || state.visibleBoundsDirty){
         renderItems.clear();
@@ -134,6 +135,11 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         instanceProgram.use();
         instanceProgram.setMat4("view", myCamera->viewMatrix());
         instanceProgram.setMat4("proj", myCamera->projectionMatrix());
+        instanceProgram.setInt("analyzeDraft", draftSetting.enabled ? 1 : 0);
+        if (draftSetting.enabled){
+            instanceProgram.setVec3("pullDir", glm::vec3(draftSetting.pullDirection[0], draftSetting.pullDirection[1], draftSetting.pullDirection[2]));
+            instanceProgram.setFloat("draftThreshold", draftSetting.requiredAngleDegrees);
+        }
 
         if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing || isChanged) {
             renderBatches.clear();
@@ -181,6 +187,12 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         shaderProgram.use();
         shaderProgram.setMat4("view", myCamera->viewMatrix());
         shaderProgram.setMat4("proj", myCamera->projectionMatrix());
+        shaderProgram.setInt("analyzeDraft", draftSetting.enabled ? 1 : 0);
+        if (draftSetting.enabled){
+            shaderProgram.setVec3("pullDir", glm::vec3(draftSetting.pullDirection[0], draftSetting.pullDirection[1], draftSetting.pullDirection[2]));
+            shaderProgram.setFloat("draftThreshold", draftSetting.requiredAngleDegrees);
+        }
+
         for(auto& item: drawableItems){
             size_t documentIndex = item.key.documentIndex;
             size_t prototypeIndex = item.key.prototypeIndex;

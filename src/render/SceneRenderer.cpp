@@ -213,6 +213,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         shaderProgram.use();
         shaderProgram.setMat4("view", myCamera->viewMatrix());
         shaderProgram.setMat4("proj", myCamera->projectionMatrix());
+        shaderProgram.setInt("analyzeDraft", 0);
 
         auto& item = selected.value();
         if (!enableCulling || myCamera->inFrustum(item.nodebbox)) {

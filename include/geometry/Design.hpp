@@ -4,5 +4,5 @@
 struct DraftAnalysisSettings{
     bool enabled = false;
     float pullDirection[3] = { 0.0f, 0.0f, 1.0f };
-    float requiredAngleDegrees = 0;
+    float requiredAngleDegrees = 3.0f;
 };

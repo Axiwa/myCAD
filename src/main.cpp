@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     bool needsInitialFit = true;
 
     CadDocument test;
-    std::string path = "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"; // "C:/Users/28025/Learn/model/chassis.step"
+    std::string path = "C:/Users/28025/Learn/model/chassis.step"; // "C:/Users/28025/Learn/model/chassis.step"
     if (argc > 1) {
         path = argv[1];
         std::cout << "Import path: " << path << std::endl;
@@ -395,7 +395,7 @@ int main(int argc, char* argv[]) {
                 if (ImGui::Button("+Z")) { draftSetting.pullDirection[0] = 0.0f; draftSetting.pullDirection[1] = 0.0f; draftSetting.pullDirection[2] = 1.0f; } ImGui::SameLine();
                 if (ImGui::Button("-Z")) { draftSetting.pullDirection[0] = 0.0f; draftSetting.pullDirection[1] = 0.0f; draftSetting.pullDirection[2] = -1.0f; }
 
-                ImGui::DragFloat("Angle Threshold", &draftSetting.requiredAngleDegrees);
+                ImGui::SliderFloat("Angle Threshold", &draftSetting.requiredAngleDegrees, 0.0f, 30.f, "%.1f");
             }
 
             ImGui::End();

@@ -15,7 +15,8 @@ out vec4 color;
 
 void main(){
     if (analyzeDraft != 0){
-        float angle = 180 * INV_PI * asin(clamp(dot(facenormal, pullDir), -1, 1));
+        vec3 worldNormal = normalize(facenormal);
+        float angle = 180 * INV_PI * asin(clamp(dot(worldNormal, pullDir), -1, 1));
         if (angle >= draftThreshold){
             color = vec4(0, 1, 0, 1);
         }

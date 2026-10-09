@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
                     pickRegistry.emplace_back();
                     pickRegistry.back().documentIndex = i;
                     pickRegistry.back().nodeId = node->id;
-                    pickMap[pickRegistry.back()] = pickRegistry.size();
+                    pickMap[pickRegistry.back()] = static_cast<PickId>(pickRegistry.size());
                 }
             }
         }

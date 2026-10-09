@@ -81,7 +81,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                             if (state.selection.has_value() && state.selection->documentIndex == i && state.selection->nodeId == curr->id) {
                                 glm::vec4 col = glm::vec4(1, 1, 0, 1);
                                 selected.emplace();
-                                InstanceKey key{ i, index, col, mirrored };
+                                InstanceKey key{ (size_t)i, index, col, mirrored };
                                 selected->key = key;
                                 selected->worldTransform = model;
                                 selected->nodebbox = curr->worldBbox;
@@ -93,7 +93,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                                 state.visibleBounds.expand(nodebox.minimum);
                                 state.visibleBounds.expand(nodebox.maximum);
 
-                                InstanceKey key {i, index, curr->colorStyle.surfaceColor, mirrored};
+                                InstanceKey key {(size_t)i, index, curr->colorStyle.surfaceColor, mirrored};
                                 RenderItem item {key, curr->worldTransform, nodebox};
                                 renderItems.emplace_back(item);
                             }
@@ -269,7 +269,7 @@ bool SceneRenderer::offscreenPicking(OrbitCamera* const myCamera, PickingFrameBu
 
                     if (index < meshBuffers[i].size()) {
                         auto& mesh = doc.prototypes[index].mesh;
-                        SceneSelection selection{ i, curr->id };
+                        SceneSelection selection{ (size_t)i, curr->id };
 
                         if (meshBuffers[i][index].has_value() && pickMap.find(selection) != pickMap.end()) {
                             glm::mat4 model = curr->worldTransform;

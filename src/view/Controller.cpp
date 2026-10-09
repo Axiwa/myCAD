@@ -111,12 +111,12 @@ bool Controller::update(bool allowCameraInput){
         
         // pan
         if (m_input.middleButton && glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
-            m_camera->pan(dx, dy);
+            m_camera->pan((float)dx, (float)dy);
         }
         // orbit
         if (m_input.rightButton) {
-            float dphi = -dx * glm::two_pi<float>() / width;
-            float dtheta = -dy * glm::pi<float>() / height;
+            float dphi = -(float)dx * glm::two_pi<float>() / width;
+            float dtheta = -(float)dy * glm::pi<float>() / height;
             m_camera->orbit(dphi, dtheta);
         }
     }

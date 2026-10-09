@@ -55,7 +55,7 @@ static bool ApplySurfaceColor(
 
 static std::string ToUtf8(const TCollection_ExtendedString& s)
 {
-    const Standard_Integer len = s.LengthOfCString();
+    const int len = s.LengthOfCString();
     std::string out(len, '\0');
     auto data = out.data();
     s.ToUTF8CString(data);
@@ -157,7 +157,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         NCollection_Sequence<TDF_Label> components;
         shapeTool->GetComponents(definitionLabel, components, false);
 
-        for (Standard_Integer i = 1; i <= components.Length(); i++) {
+        for (int i = 1; i <= components.Length(); i++) {
             node.children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node.colorStyle, level+1, nodeId));
         }
     }
@@ -203,7 +203,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
                 prototype.localBbox = bbox;
             }
 
-            partsmap[prototype.labelEntry] = partsvec.size();
+            partsmap[prototype.labelEntry] = static_cast<uint32_t>(partsvec.size());
             node.prototypeIndex = partsvec.size();
             partsvec.emplace_back(std::move(prototype));
         }
@@ -247,7 +247,7 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
         return false;        
     }
     // 4. 传输数据到 Document
-    Standard_Boolean tStatus = aReader.Transfer(result.m_document);
+    bool tStatus = aReader.Transfer(result.m_document);
     if (!tStatus){
         std::cerr << "Import Error: Cannot transfer from "<< path << std::endl;
         return false;      

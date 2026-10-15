@@ -72,11 +72,11 @@ static std::string GetLabelName(const TDF_Label& label){
     }
 }
 
-SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level, SceneNodeId& nodeId) {
-    SceneNode node;
-    node.colorStyle = parentcolor;
+SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level, SceneNodeId& nodeId) {
+    SceneNode* node = new SceneNode();
+    node->colorStyle = parentcolor;
     nodeId++;
-    node.id = nodeId;
+    node->id = nodeId;
 
     TDF_Label occurrenceLabel = root;
     TDF_Label definitionLabel = root;
@@ -97,28 +97,28 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         }
     }
 
-    ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorGen, ColorSource::DefinitionGeneral, node.colorStyle);
-    ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorSurf, ColorSource::DefinitionSurface, node.colorStyle);
+    ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorGen, ColorSource::DefinitionGeneral, node->colorStyle);
+    ApplySurfaceColor(colorTool, definitionLabel, XCAFDoc_ColorSurf, ColorSource::DefinitionSurface, node->colorStyle);
     if (definitionLabel != occurrenceLabel) {
-        ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorGen, ColorSource::OccurrenceGeneral, node.colorStyle);
-        ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorSurf, ColorSource::OccurrenceSurface, node.colorStyle);
+        ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorGen, ColorSource::OccurrenceGeneral, node->colorStyle);
+        ApplySurfaceColor(colorTool, occurrenceLabel, XCAFDoc_ColorSurf, ColorSource::OccurrenceSurface, node->colorStyle);
     }
 
     TDF_Tool::Entry(occurrenceLabel, entry);
     TDF_Tool::Entry(definitionLabel, dentry);
-    node.occLabelEntry = entry.ToCString();
+    node->occLabelEntry = entry.ToCString();
 
     const std::string definitionName = GetLabelName(definitionLabel);
     const std::string occurrenceName = occurrenceLabel != definitionLabel ? GetLabelName(occurrenceLabel) : std::string{};
-    node.name = occurrenceName.empty() ? definitionName : occurrenceName;
+    node->name = occurrenceName.empty() ? definitionName : occurrenceName;
 
     TopoDS_Shape shape = XCAFDoc_ShapeTool::GetShape(definitionLabel);
 
     const TopLoc_Location location = XCAFDoc_ShapeTool::GetLocation(occurrenceLabel);
     gp_Trsf local = location.Transformation();
     gp_Trsf world = parent * local;
-    node.localTransform = ToGLMTransform(local);
-    node.worldTransform = ToGLMTransform(world);
+    node->localTransform = ToGLMTransform(local);
+    node->worldTransform = ToGLMTransform(world);
 
     // === 测试 occurrence transform ===
     if (isNodeMirror){
@@ -129,16 +129,16 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
 
             local = testOffset * local * testMirror;
             world = parent * local;
-            node.localTransform = ToGLMTransform(local);
-            node.worldTransform = ToGLMTransform(world);
+            node->localTransform = ToGLMTransform(local);
+            node->worldTransform = ToGLMTransform(world);
         }
     }
 
-    std::cout<< "SceneNode name: " << node.name << std::endl;
-    std::cout<< "SceneNode id: " << node.id << std::endl;
+    std::cout<< "SceneNode name: " << node->name << std::endl;
+    std::cout<< "SceneNode id: " << node->id << std::endl;
     std::cout << "Occurrence Label entry: " << entry << std::endl;
-    std::cout << "Color Source: " << node.colorStyle.toSourceString() << std::endl;
-    std::cout << "RGBA (" << node.colorStyle.surfaceColor.r << " " << node.colorStyle.surfaceColor.g << " " << node.colorStyle.surfaceColor.b << " " << node.colorStyle.surfaceColor.a << ")" << std::endl;
+    std::cout << "Color Source: " << node->colorStyle.toSourceString() << std::endl;
+    std::cout << "RGBA (" << node->colorStyle.surfaceColor.r << " " << node->colorStyle.surfaceColor.g << " " << node->colorStyle.surfaceColor.b << " " << node->colorStyle.surfaceColor.a << ")" << std::endl;
     if (!shape.IsNull())
     {
         std::cout << "Shape type: " << (int)shape.ShapeType() << "\n";
@@ -147,7 +147,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
     {
         std::cout << "Shape: <none>\n";
     }
-    std::cout << "SceneNode mirrored: " << (glm::determinant(glm::dmat3(node.worldTransform)) < 0.0) << std::endl;
+    std::cout << "SceneNode mirrored: " << (glm::determinant(glm::dmat3(node->worldTransform)) < 0.0) << std::endl;
     std::cout << "Definition Label entry: " << dentry << std::endl;
     std::cout << "Prototype name: " << definitionName << std::endl;
     std::cout << "Tag: " << definitionLabel.Tag() << "\n";
@@ -158,7 +158,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         shapeTool->GetComponents(definitionLabel, components, false);
 
         for (int i = 1; i <= components.Length(); i++) {
-            node.children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node.colorStyle, level+1, nodeId));
+            node->children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node->colorStyle, level+1, nodeId));
         }
     }
     else {
@@ -171,7 +171,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
         DumpTrsf(localLoc.Transformation());
 
         if (partsmap.find(ToUtf8(dentry)) != partsmap.end()){
-            node.prototypeIndex = partsmap[ToUtf8(dentry)];
+            node->prototypeIndex = partsmap[ToUtf8(dentry)];
         }
         else{
             gp_Trsf mirrorTrsf;
@@ -204,7 +204,7 @@ SceneNode traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::h
             }
 
             partsmap[prototype.labelEntry] = static_cast<uint32_t>(partsvec.size());
-            node.prototypeIndex = partsvec.size();
+            node->prototypeIndex = partsvec.size();
             partsvec.emplace_back(std::move(prototype));
         }
     }
@@ -273,8 +273,8 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
     SceneNodeId nodeId = 0;
     for (NCollection_Sequence<TDF_Label>::Iterator it(aFreeShapes); it.More(); it.Next()) {
         const TDF_Label& root = it.Value();
-        SceneNode node = traverse(shapeTool, colorTool, root, prototypes, result.prototypes, trsf, color, 0, nodeId);
-        result.roots.emplace_back(std::move(node));
+        SceneNode* node = traverse(shapeTool, colorTool, root, prototypes, result.prototypes, trsf, color, 0, nodeId);
+        result.roots.emplace_back(node);
     }
     result.numNodes = nodeId;
 

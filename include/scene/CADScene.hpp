@@ -98,9 +98,12 @@ struct SceneNode {
     glm::dmat4 worldTransform{1.0};
     std::optional<std::size_t> prototypeIndex; // if this isn't a leaf node, there is no prototypeIndex
     ResolvedStyle colorStyle;
-    std::vector<SceneNode> children;
+
+    SceneNode* parent = nullptr;
+    std::vector<SceneNode*> children;
 
     bool isVisible = true;
+    bool effectiveVisible = true;
     bool isTransformDirty = true;
     Bbox worldBbox;
 };
@@ -111,7 +114,7 @@ struct CadDocument {
     occ::handle<TDocStd_Document> m_document;
 
     std::vector<PartPrototype> prototypes;
-    std::vector<SceneNode> roots;
+    std::vector<SceneNode*> roots;
 
     uint64_t numNodes = 0;
 
@@ -119,6 +122,10 @@ struct CadDocument {
         sourcePath.clear();
         m_document.Nullify();
         prototypes.clear();
+        for(int i = 0; i<roots.size(); i++){
+            delete roots[i];
+            roots[i] = nullptr;
+        }
         roots.clear();
     }
 };
@@ -133,9 +140,9 @@ struct CadScene {
             auto& doc = docs[i];
             runtimeNodes[i].assign(static_cast<std::size_t>(doc.numNodes) + 1, nullptr);
 
-            for (auto& root : doc.roots) {
+            for (auto root : doc.roots) {
                 std::stack<SceneNode*> m_stack;
-                m_stack.push(&root);
+                m_stack.push(root);
                                 
                 while (!m_stack.empty()) {
                     SceneNode* curr = m_stack.top();
@@ -156,7 +163,7 @@ struct CadScene {
                     }
 
                     for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
-                        m_stack.push(&(*it));
+                        m_stack.push(*it);
                     }
                 }
             }

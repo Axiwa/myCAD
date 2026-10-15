@@ -58,9 +58,9 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
     // Draw cadScene
     for (int i = 0; i < cadScene.docs.size(); i++) {
         const auto& doc = cadScene.docs[i];
-        for (const auto& root : doc.roots) {
+        for (const auto root : doc.roots) {
             std::stack<const SceneNode*> m_stack;
-            m_stack.push(&root);
+            m_stack.push(root);
                             
             while (!m_stack.empty()) {
                 const SceneNode* curr = m_stack.top();
@@ -104,7 +104,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                 }
                 
                 for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
-                    m_stack.push(&(*it));
+                    m_stack.push(*it);
                 }
             }
         }
@@ -253,9 +253,9 @@ bool SceneRenderer::offscreenPicking(OrbitCamera* const myCamera, PickingFrameBu
     pickFirstProgram.setMat4("proj", myCamera->projectionMatrix());
     for (int i = 0; i < cadScene.docs.size(); i++) {
         const auto& doc = cadScene.docs[i];
-        for (const auto& root : doc.roots) {
+        for (const auto root : doc.roots) {
             std::stack<const SceneNode*> m_stack;
-            m_stack.push(&root);
+            m_stack.push(root);
 
             while (!m_stack.empty()) {
                 const SceneNode* curr = m_stack.top();
@@ -283,7 +283,7 @@ bool SceneRenderer::offscreenPicking(OrbitCamera* const myCamera, PickingFrameBu
                     }
                 }
                 for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
-                    m_stack.push(&(*it));
+                    m_stack.push(*it);
                 }
             }
         }

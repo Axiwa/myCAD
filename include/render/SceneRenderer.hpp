@@ -40,6 +40,7 @@ struct RenderBatch {
     GLuint instanceVBO;
     InstanceKey key;
     GLsizei instanceCount = 0;
+    bool isDirty = false;
 
     RenderBatch(){
         glGenBuffers(1, &instanceVBO);
@@ -47,7 +48,8 @@ struct RenderBatch {
     RenderBatch(RenderBatch&& other) noexcept:
     instanceVBO(std::exchange(other.instanceVBO, 0)),
     key(other.key),
-    instanceCount(other.instanceCount)
+    instanceCount(other.instanceCount),
+    isDirty(other.isDirty)
     { }
 
     RenderBatch& operator=(RenderBatch&& other) noexcept {
@@ -59,6 +61,7 @@ struct RenderBatch {
             instanceVBO = std::exchange(other.instanceVBO, 0);
             key = other.key;
             instanceCount = other.instanceCount;
+            isDirty = other.isDirty;
         }
         return *this;
     }

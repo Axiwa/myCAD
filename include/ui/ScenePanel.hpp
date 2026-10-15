@@ -58,7 +58,7 @@ public:
         ImGui::NewFrame();
     }
 
-    void drawHierachy(CadScene& cadScene, SceneRuntimeState& state){
+    void drawHierachy(CadScene& cadScene, SceneRuntimeState& state, SceneNode* changingNode){
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(200.0f, 300.f), ImGuiCond_Once);
         ImGui::Begin("Scene Hierachy");
@@ -68,7 +68,7 @@ public:
             if (ImGui::TreeNode(doc.sourcePath.filename().string().c_str())) {
                 for (auto& root : doc.roots) {
                     std::stack<std::pair<SceneNode*, bool>> m_stack;
-                    m_stack.emplace(&root, false);
+                    m_stack.emplace(root, false);
 
                     while (!m_stack.empty()) {
                         SceneNode* curr = m_stack.top().first;
@@ -97,7 +97,9 @@ public:
                         // 眼睛按钮
                         if (ImGui::SmallButton(curr->isVisible ? ICON_FA_EYE "##visibility" : ICON_FA_EYE_SLASH "##visibility"))
                         {
+                            changingNode = curr;
                             curr->isVisible = !curr->isVisible;
+                            curr->effectiveVisible = curr->parent ? curr->parent->effectiveVisible && curr->isVisible : curr->isVisible;
                             state.visibleBoundsDirty = true;
                         }
 
@@ -114,7 +116,7 @@ public:
                             m_stack.emplace(curr, true);
 
                             for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
-                                m_stack.emplace(&(*it), false);
+                                m_stack.emplace(*it, false);
                             }
                         }
 

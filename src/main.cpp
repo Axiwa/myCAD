@@ -76,9 +76,9 @@ int main(int argc, char* argv[]) {
     if (isStreeTest){
         // find first leaf node
         SceneNode* leaf = nullptr;
-        for (auto& root : test.roots) {
+        for (auto root : test.roots) {
             std::stack<SceneNode*> m_stack;
-            m_stack.push(&root);
+            m_stack.push(root);
             while (!m_stack.empty()) {
                 SceneNode* curr = m_stack.top();
                 m_stack.pop();
@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
                 for (auto& child : curr->children) {
-                    m_stack.push(&child);
+                    m_stack.push(child);
                 }
             }
             if (leaf) break;
@@ -106,17 +106,17 @@ int main(int argc, char* argv[]) {
         uint64_t num = 256;
         for (SceneNodeId i = oriNum; i < oriNum + num*num; i++) {
             const glm::dmat4 offset = glm::translate(glm::dmat4(1.0), glm::dvec3((i/num) * 1, (i % num) * 1, 0.0));
-            test.roots.push_back(SceneNode());
-            test.roots.back().id = i;
-            test.roots.back().occLabelEntry = baseEntry + "/" + std::to_string(i);
-            test.roots.back().name = baseName + "/" + std::to_string(i);
-            test.roots.back().localTransform = offset * baseTransform;
-            test.roots.back().worldTransform = test.roots.back().localTransform;
+            test.roots.push_back(new SceneNode());
+            test.roots.back()->id = i;
+            test.roots.back()->occLabelEntry = baseEntry + "/" + std::to_string(i);
+            test.roots.back()->name = baseName + "/" + std::to_string(i);
+            test.roots.back()->localTransform = offset * baseTransform;
+            test.roots.back()->worldTransform = test.roots.back()->localTransform;
             if (i % 2 == 0){
-                test.roots.back().worldTransform[0] = -test.roots.back().worldTransform[0]; 
+                test.roots.back()->worldTransform[0] = -test.roots.back()->worldTransform[0];
             }
-            test.roots.back().prototypeIndex = prototypeIndex;
-            test.roots.back().colorStyle = colorStyle;
+            test.roots.back()->prototypeIndex = prototypeIndex;
+            test.roots.back()->colorStyle = colorStyle;
             test.numNodes++;
         }
     }
@@ -310,7 +310,7 @@ int main(int argc, char* argv[]) {
                         }
 
                         for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
-                            m_stack.push(&(*it));
+                            m_stack.push(*it);
                         }
                     }
                 }
@@ -331,7 +331,19 @@ int main(int argc, char* argv[]) {
             renderStats.cpuRenderMilliseconds = cpuProfiler.getAvgTime();
         }
         // Scene Node
-        scenePanel.drawHierachy(cadScene, sceneState);
+        SceneNode* changingNode = nullptr;
+        scenePanel.drawHierachy(cadScene, sceneState, changingNode);
+        if (changingNode){
+            std::stack<SceneNode*> m_stack;
+            m_stack.push(changingNode);
+            while(!m_stack.empty()){
+                SceneNode* curr = m_stack.top();
+                m_stack.pop();
+
+                
+            }
+        }
+
         {
             if (sceneState.selection.has_value()) {
                 SceneNode* node = cadScene.resolveSelection(sceneState.selection.value(), runtimeNodes);

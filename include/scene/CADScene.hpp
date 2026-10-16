@@ -29,6 +29,13 @@ enum class ColorSource {
     OccurrenceSurface
 };
 
+enum class UpdateListAction : uint32_t {
+    kRemove,
+    kUpdate,
+    kAdd,
+    kAddAndUpdate
+};
+
 struct ResolvedStyle {
     glm::vec4 surfaceColor{1.0f};
     ColorSource colorSource = ColorSource::Default;
@@ -87,7 +94,6 @@ struct SceneSelectionHash {
     }
 };
 
-
 // occurrence. Real hierachy
 struct SceneNode {
     SceneNodeId id = 0;
@@ -99,13 +105,54 @@ struct SceneNode {
     std::optional<std::size_t> prototypeIndex; // if this isn't a leaf node, there is no prototypeIndex
     ResolvedStyle colorStyle;
 
-    SceneNode* parent = nullptr;
     std::vector<SceneNode*> children;
 
     bool isVisible = true;
     bool effectiveVisible = true;
     bool isTransformDirty = true;
     Bbox worldBbox;
+
+    // Runtime info
+    SceneNode* parent = nullptr;
+    size_t documentIndex = 0;
+};
+
+class SceneNodeUpdateList {
+public:
+    void addNode(SceneNode* item)
+    {
+        auto it = nodeActions.find(item);
+        if (it != nodeActions.end())
+            (uint32_t&)it->second |= (uint32_t)UpdateListAction::kAdd;
+        else
+            nodeActions[item] = UpdateListAction::kAdd;
+    }
+    void updateNode(SceneNode* item)
+    {
+        auto it = nodeActions.find(item);
+        if (it != nodeActions.end())
+            (uint32_t&)it->second |= (uint32_t)UpdateListAction::kUpdate;
+        else
+            nodeActions[item] = UpdateListAction::kUpdate;
+    }
+    void removeNode(SceneNode* item)
+    {
+        nodeActions[item] = UpdateListAction::kRemove;
+    }
+    auto begin()
+    {
+        return nodeActions.begin();
+    }
+    auto end()
+    {
+        return nodeActions.end();
+    }
+    void clear()
+    {
+        nodeActions.clear();
+    }
+
+    std::unordered_map<SceneNode*, UpdateListAction> nodeActions;
 };
 
 // list of scenenode
@@ -146,6 +193,7 @@ struct CadScene {
                                 
                 while (!m_stack.empty()) {
                     SceneNode* curr = m_stack.top();
+                    curr->documentIndex = i;
                     m_stack.pop();
                     runtimeNodes[i][curr->id] = curr;
 

@@ -33,7 +33,7 @@
 
 bool isFaceMirror = false;
 bool isNodeMirror = false;
-bool isStreeTest = false;
+bool isStreeTest = true;
 bool enableInstance = true;
 bool enableCulling = false;
 
@@ -152,6 +152,7 @@ int main(int argc, char* argv[]) {
     SceneRuntimeState sceneState;
     Profiler cpuProfiler;
     RenderStats renderStats;
+    SceneNodeUpdateList nodeUpdateList;
     uint32_t frameCount = 0;
 
     size_t numPrototype = 0;
@@ -171,20 +172,6 @@ int main(int argc, char* argv[]) {
 
     std::vector<SceneSelection> pickRegistry;
     std::unordered_map<SceneSelection, PickId, SceneSelectionHash> pickMap;
-    for(int i = 0; i<runtimeNodes.size(); i++){
-        auto& doc = runtimeNodes[i];
-        for(auto node: doc){
-            if (node && node->prototypeIndex.has_value()){
-                auto index = node->prototypeIndex.value();
-                if (cadScene.docs[i].prototypes[index].meshStatus == MeshStatus::Ready){
-                    pickRegistry.emplace_back();
-                    pickRegistry.back().documentIndex = i;
-                    pickRegistry.back().nodeId = node->id;
-                    pickMap[pickRegistry.back()] = static_cast<PickId>(pickRegistry.size());
-                }
-            }
-        }
-    }
     glfwSwapInterval(0);
     while(!glfwWindowShouldClose(myWindow.GetWindow())){
         glfwPollEvents();
@@ -212,8 +199,32 @@ int main(int argc, char* argv[]) {
 
         // this will not happen for now... randomly adding new variables
         if (sceneState.sceneStructureDirty){
+            for(int i = 0; i<runtimeNodes.size(); i++){
+                auto& doc = runtimeNodes[i];
+                for(auto node: doc){
+                    nodeUpdateList.removeNode(node);
+                }
+            }
             cadScene.getRuntimeNodes(runtimeNodes);
             sceneRenderer.collectObjects(cadScene);
+
+            pickRegistry.clear();
+            pickMap.clear();
+            for(int i = 0; i<runtimeNodes.size(); i++){
+                auto& doc = runtimeNodes[i];
+                for(auto node: doc){
+                    nodeUpdateList.addNode(node);
+                    if (node && node->prototypeIndex.has_value()){
+                        auto index = node->prototypeIndex.value();
+                        if (cadScene.docs[i].prototypes[index].meshStatus == MeshStatus::Ready){
+                            pickRegistry.emplace_back();
+                            pickRegistry.back().documentIndex = i;
+                            pickRegistry.back().nodeId = node->id;
+                            pickMap[pickRegistry.back()] = static_cast<PickId>(pickRegistry.size());
+                        }
+                    }
+                }
+            }
 
             numPrototype = 0;
             numSceneNode = 0;
@@ -263,7 +274,7 @@ int main(int argc, char* argv[]) {
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.start();
         }
-        sceneRenderer.renderScene(myWindow.GetCamera(), runtimeNodes, cadScene, sceneState, renderStats, draftSetting);
+        sceneRenderer.renderScene(myWindow.GetCamera(), runtimeNodes, cadScene, sceneState, renderStats, nodeUpdateList, draftSetting);
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.accumulate();
         }
@@ -334,6 +345,13 @@ int main(int argc, char* argv[]) {
         SceneNode* changingNode = nullptr;
         scenePanel.drawHierachy(cadScene, sceneState, &changingNode);
         if (changingNode){
+            if (changingNode->effectiveVisible == true){
+                nodeUpdateList.addNode(changingNode);
+            }
+            else if (changingNode->effectiveVisible == false) {
+                nodeUpdateList.removeNode(changingNode);
+            }
+            
             std::stack<SceneNode*> m_stack;
             m_stack.push(changingNode);
             while(!m_stack.empty()){
@@ -341,7 +359,15 @@ int main(int argc, char* argv[]) {
                 m_stack.pop();
 
                 for(auto child: curr->children){
+                    bool oldVisibility = child->effectiveVisible;
                     child->effectiveVisible = child->isVisible && curr->effectiveVisible;
+                    if (oldVisibility == true && child->effectiveVisible == false){
+                        nodeUpdateList.removeNode(child);
+                    }
+                    else if (oldVisibility == false && child->effectiveVisible == true){
+                        nodeUpdateList.addNode(child);
+                    }
+
                     m_stack.push(child);
                 }
             }

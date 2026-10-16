@@ -1,6 +1,7 @@
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
+#include <set>
 #include <vector>
 
 #include "render/SceneRenderer.hpp"
@@ -47,7 +48,7 @@ void SceneRenderer::collectObjects(CadScene& cadScene){
     }
 }
 
-void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::vector<SceneNode*>>& runtimeNodes, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, const DraftAnalysisSettings& draftSetting){
+void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::vector<SceneNode*>>& runtimeNodes, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, SceneNodeUpdateList& updateList, const DraftAnalysisSettings& draftSetting){
     std::optional<RenderItem> selected;
     if (state.sceneStructureDirty || state.visibleBoundsDirty){
         renderItems.clear();
@@ -90,7 +91,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
         }
     }
 
-    bool isChanged = (enableCulling && myCamera->calculateFrustum()) || (!wasCulling && enableCulling) || (wasCulling && !enableCulling);
+    bool isCullingChanged = (enableCulling && myCamera->calculateFrustum()) || (!wasCulling && enableCulling) || (wasCulling && !enableCulling);
 
     if (enableInstance){
         instanceProgram.use();
@@ -102,7 +103,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
             instanceProgram.setFloat("draftThreshold", draftSetting.requiredAngleDegrees);
         }
 
-        if (!wasInstancing || isChanged) { // no instancing before or culling has changed
+        if (!wasInstancing || isCullingChanged) { // no instancing before or culling has changed
             renderBatches.clear();
 
             int left = 0, right = 0;
@@ -131,7 +132,62 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
             }
         }
         else {
-            // apply diff: add, remove, update
+            std::set<InstanceKey> diffKeys;
+            for(auto it = updateList.begin(); it != updateList.end(); it++){
+                // It can only handle remove and add
+                UpdateListAction action = it->second;
+                SceneNode* curr = it->first;
+                if (!curr) continue;
+
+                size_t documentIndex = curr->documentIndex;
+                SceneNodeId nodeId = curr->id;
+                
+                if (!curr->prototypeIndex.has_value()) continue;
+
+                glm::mat4 model = curr->worldTransform;
+                const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
+
+                InstanceKey key {documentIndex, curr->prototypeIndex.value(), curr->colorStyle.surfaceColor, mirrored};
+                diffKeys.insert(key);
+            }
+
+            for(auto& key: diffKeys) {
+                
+                if (renderBatches.find(key) != renderBatches.end()){
+                    renderBatches.erase(key);
+                }
+
+                int left = 0;
+                while(left < renderItems.size()){
+                    if (renderItems[left].key == key){
+                        break;
+                    }
+                    left++;
+                }
+
+                if (left < renderItems.size()){
+                    size_t right = left;
+
+                    std::vector<glm::mat4> mats;
+                    while (right < renderItems.size() - 1 && renderItems[right].key == renderItems[right + 1].key) {
+                        auto& item = renderItems[right];
+                        if (!enableCulling || myCamera->inFrustum(item.nodebbox)){
+                            mats.push_back(renderItems[right].worldTransform);
+                        }
+                        right++;
+                    }
+                    if (!enableCulling || myCamera->inFrustum(renderItems[right].nodebbox)){
+                        mats.push_back(renderItems[right].worldTransform);
+                    }
+
+                    RenderBatch batch;
+                    batch.key = renderItems[right].key;
+                    batch.instanceCount = static_cast<GLsizei>(mats.size());
+                    batch.uploadData(mats);
+
+                    renderBatches.emplace(batch.key, std::move(batch));
+                }
+            }
         }
         
 
@@ -218,6 +274,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
 
     wasInstancing = enableInstance;
     wasCulling = enableCulling;
+    updateList.clear();
 }
 
 bool SceneRenderer::offscreenPicking(OrbitCamera* const myCamera, PickingFrameBuffer* const pickBuffer, GLFWwindow* myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){

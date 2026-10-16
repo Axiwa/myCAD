@@ -124,7 +124,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
                 batch.instanceCount = static_cast<GLsizei>(mats.size());
                 batch.uploadData(mats);
 
-                renderBatches.emplace_back(std::move(batch));
+                renderBatches.emplace(batch.key, std::move(batch));
 
                 left = right + 1;
                 right = left;
@@ -135,7 +135,8 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
         }
         
 
-        for (auto& batch : renderBatches) {
+        for (auto& batchpair : renderBatches) {
+            auto& batch = batchpair.second;
             size_t documentIndex = batch.key.documentIndex;
             size_t prototypeIndex = batch.key.prototypeIndex;
 

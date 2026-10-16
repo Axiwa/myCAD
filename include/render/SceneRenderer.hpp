@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <stack>
+#include <map>
 
 #include <glad/glad.h>
 #include "render/GpuMesh.hpp"
@@ -96,7 +97,7 @@ private:
     bool wasCulling = false;
     std::vector<std::vector<std::optional<GpuMesh>>> meshBuffers;
     std::vector<RenderItem> renderItems;
-    std::vector<RenderBatch> renderBatches;
+    std::map<InstanceKey, RenderBatch> renderBatches;
     std::vector<RenderItem> drawableItems;
     ShaderProgram pickFirstProgram;
     ShaderProgram shaderProgram;

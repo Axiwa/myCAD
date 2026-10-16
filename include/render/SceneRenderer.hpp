@@ -88,11 +88,12 @@ class SceneRenderer {
 public:
     SceneRenderer(const std::filesystem::path& executableDirectory);
     void collectObjects(CadScene& cadScene);
-    void renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, const DraftAnalysisSettings& draftSetting);
+    void renderScene(OrbitCamera* const myCamera, std::vector<std::vector<SceneNode*>>& runtimeNodes, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, const DraftAnalysisSettings& draftSetting);
     bool offscreenPicking(OrbitCamera* const myCamera, PickingFrameBuffer* const pickBuffer, GLFWwindow* myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap);
 
 private:
     bool wasInstancing = true;
+    bool wasCulling = false;
     std::vector<std::vector<std::optional<GpuMesh>>> meshBuffers;
     std::vector<RenderItem> renderItems;
     std::vector<RenderBatch> renderBatches;

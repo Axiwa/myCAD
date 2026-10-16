@@ -58,7 +58,7 @@ public:
         ImGui::NewFrame();
     }
 
-    void drawHierachy(CadScene& cadScene, SceneRuntimeState& state, SceneNode* changingNode){
+    void drawHierachy(CadScene& cadScene, SceneRuntimeState& state, SceneNode** changingNode){
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always, ImVec2(0.0f, 0.0f));
         ImGui::SetNextWindowSize(ImVec2(200.0f, 300.f), ImGuiCond_Once);
         ImGui::Begin("Scene Hierachy");
@@ -97,7 +97,7 @@ public:
                         // 眼睛按钮
                         if (ImGui::SmallButton(curr->isVisible ? ICON_FA_EYE "##visibility" : ICON_FA_EYE_SLASH "##visibility"))
                         {
-                            changingNode = curr;
+                            *changingNode = curr;
                             curr->isVisible = !curr->isVisible;
                             curr->effectiveVisible = curr->parent ? curr->parent->effectiveVisible && curr->isVisible : curr->isVisible;
                             state.visibleBoundsDirty = true;

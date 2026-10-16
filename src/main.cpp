@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.start();
         }
-        sceneRenderer.renderScene(myWindow.GetCamera(), cadScene, sceneState, renderStats, draftSetting);
+        sceneRenderer.renderScene(myWindow.GetCamera(), runtimeNodes, cadScene, sceneState, renderStats, draftSetting);
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.accumulate();
         }
@@ -332,7 +332,7 @@ int main(int argc, char* argv[]) {
         }
         // Scene Node
         SceneNode* changingNode = nullptr;
-        scenePanel.drawHierachy(cadScene, sceneState, changingNode);
+        scenePanel.drawHierachy(cadScene, sceneState, &changingNode);
         if (changingNode){
             std::stack<SceneNode*> m_stack;
             m_stack.push(changingNode);
@@ -340,7 +340,10 @@ int main(int argc, char* argv[]) {
                 SceneNode* curr = m_stack.top();
                 m_stack.pop();
 
-                
+                for(auto child: curr->children){
+                    child->effectiveVisible = child->isVisible && curr->effectiveVisible;
+                    m_stack.push(child);
+                }
             }
         }
 

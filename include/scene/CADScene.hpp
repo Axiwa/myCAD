@@ -163,6 +163,7 @@ struct CadScene {
                     }
 
                     for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
+                        (*it)->parent = curr;
                         m_stack.push(*it);
                     }
                 }

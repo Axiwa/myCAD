@@ -47,29 +47,16 @@ void SceneRenderer::collectObjects(CadScene& cadScene){
     }
 }
 
-void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, const DraftAnalysisSettings& draftSetting){
-    drawableItems.clear();
+void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::vector<SceneNode*>>& runtimeNodes, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, const DraftAnalysisSettings& draftSetting){
+    std::optional<RenderItem> selected;
     if (state.sceneStructureDirty || state.visibleBoundsDirty){
         renderItems.clear();
-    }
 
-    std::optional<RenderItem> selected;
-
-    // Draw cadScene
-    for (int i = 0; i < cadScene.docs.size(); i++) {
-        const auto& doc = cadScene.docs[i];
-        for (const auto root : doc.roots) {
-            std::stack<const SceneNode*> m_stack;
-            m_stack.push(root);
-                            
-            while (!m_stack.empty()) {
-                const SceneNode* curr = m_stack.top();
-                m_stack.pop();
-                if (curr->isVisible == false) {
-                    continue;
-                }
-
-                if (curr->prototypeIndex.has_value()) {
+        for(int i = 0; i < runtimeNodes.size(); i++){
+            const auto& doc = cadScene.docs[i];
+            for (int j = 1; j < runtimeNodes[i].size(); j++) {
+                auto curr = runtimeNodes[i][j];
+                if (curr->effectiveVisible && curr->prototypeIndex.has_value()){
                     auto index = curr->prototypeIndex.value();
 
                     if (index < meshBuffers[i].size()){
@@ -77,15 +64,6 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                         if (meshBuffers[i][index].has_value()){
                             glm::mat4 model = curr->worldTransform;
                             const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
-
-                            if (state.selection.has_value() && state.selection->documentIndex == i && state.selection->nodeId == curr->id) {
-                                glm::vec4 col = glm::vec4(1, 1, 0, 1);
-                                selected.emplace();
-                                InstanceKey key{ (size_t)i, index, col, mirrored };
-                                selected->key = key;
-                                selected->worldTransform = model;
-                                selected->nodebbox = curr->worldBbox;
-                            }
                             
                             // update scene bbox
                             if (state.sceneStructureDirty || state.visibleBoundsDirty) {
@@ -102,34 +80,17 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                         }
                     }
                 }
-                
-                for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
-                    m_stack.push(*it);
-                }
             }
+        }
+
+        if (enableInstance){
+            std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
+                return a.key < b.key;
+            });
         }
     }
 
-    if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing){
-        std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
-            return a.key < b.key;
-        });
-    }
-
-    bool isChanged = myCamera->calculateFrustum();
-    if (enableCulling){
-        for(auto& item: renderItems){
-            if (myCamera->inFrustum(item.nodebbox)){
-                drawableItems.emplace_back(item);
-            }
-            else{
-                renderStats.culledOccurrences++;
-            }
-        }
-    }
-    else{
-        drawableItems = renderItems;
-    }
+    bool isChanged = (enableCulling && myCamera->calculateFrustum()) || (!wasCulling && enableCulling) || (wasCulling && !enableCulling);
 
     if (enableInstance){
         instanceProgram.use();
@@ -141,21 +102,26 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
             instanceProgram.setFloat("draftThreshold", draftSetting.requiredAngleDegrees);
         }
 
-        if (state.sceneStructureDirty || state.visibleBoundsDirty || !wasInstancing || isChanged) {
+        if (!wasInstancing || isChanged) { // no instancing before or culling has changed
             renderBatches.clear();
 
             int left = 0, right = 0;
-            while (left < drawableItems.size()) {
+            while (left < renderItems.size()) {
                 std::vector<glm::mat4> mats;
-                mats.push_back(drawableItems[right].worldTransform);
-                while (right < drawableItems.size() - 1 && drawableItems[right].key == drawableItems[right + 1].key) {
+                while (right < renderItems.size() - 1 && renderItems[right].key == renderItems[right + 1].key) {
+                    auto& item = renderItems[right];
+                    if (!enableCulling || myCamera->inFrustum(item.nodebbox)){
+                        mats.push_back(renderItems[right].worldTransform);
+                    }
                     right++;
-                    mats.push_back(drawableItems[right].worldTransform);
+                }
+                if (!enableCulling || myCamera->inFrustum(renderItems[right].nodebbox)){
+                    mats.push_back(renderItems[right].worldTransform);
                 }
 
                 RenderBatch batch;
-                batch.key = drawableItems[right].key;
-                batch.instanceCount = right - left + 1;
+                batch.key = renderItems[right].key;
+                batch.instanceCount = static_cast<GLsizei>(mats.size());
                 batch.uploadData(mats);
 
                 renderBatches.emplace_back(std::move(batch));
@@ -164,6 +130,10 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
                 right = left;
             }
         }
+        else {
+            // apply diff: add, remove, update
+        }
+        
 
         for (auto& batch : renderBatches) {
             size_t documentIndex = batch.key.documentIndex;
@@ -193,7 +163,11 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
             shaderProgram.setFloat("draftThreshold", draftSetting.requiredAngleDegrees);
         }
 
-        for(auto& item: drawableItems){
+        for(auto& item: renderItems){
+            if (enableCulling && !myCamera->inFrustum(item.nodebbox)){
+                renderStats.culledOccurrences++;
+                continue;
+            }
             size_t documentIndex = item.key.documentIndex;
             size_t prototypeIndex = item.key.prototypeIndex;
             bool mirrored = item.key.isMirrored;
@@ -209,23 +183,28 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
         }
     }
 
-    if (selected.has_value()){
-        shaderProgram.use();
-        shaderProgram.setMat4("view", myCamera->viewMatrix());
-        shaderProgram.setMat4("proj", myCamera->projectionMatrix());
-        shaderProgram.setInt("analyzeDraft", 0);
+    if (state.selection.has_value()){       
+        size_t documentIndex = state.selection->documentIndex;
+        SceneNodeId nodeId = state.selection->nodeId;
+        SceneNode* curr = runtimeNodes[documentIndex][nodeId];
 
-        auto& item = selected.value();
-        if (!enableCulling || myCamera->inFrustum(item.nodebbox)) {
-            size_t documentIndex = item.key.documentIndex;
-            size_t prototypeIndex = item.key.prototypeIndex;
-            bool mirrored = item.key.isMirrored;
+        if (curr->effectiveVisible && (!enableCulling || myCamera->inFrustum(curr->worldBbox)) && curr->prototypeIndex.has_value()){
+            size_t prototypeIndex = curr->prototypeIndex.value();
+
+            shaderProgram.use();
+            shaderProgram.setMat4("view", myCamera->viewMatrix());
+            shaderProgram.setMat4("proj", myCamera->projectionMatrix());
+            shaderProgram.setInt("analyzeDraft", 0);
+
+            glm::mat4 model = curr->worldTransform;
+            const bool mirrored = glm::determinant(glm::dmat3(model)) < 0.0;
+            glm::vec4 col = glm::vec4(1, 1, 0, 1);
             glFrontFace(mirrored ? GL_CW : GL_CCW);
 
             glDepthFunc(GL_LEQUAL);
             glDepthMask(GL_FALSE);
-            shaderProgram.setMat4("model", item.worldTransform);
-            shaderProgram.setVec4("baseColor", item.key.color);
+            shaderProgram.setMat4("model", model);
+            shaderProgram.setVec4("baseColor", col);
             meshBuffers[documentIndex][prototypeIndex].value().draw();
             glDepthFunc(GL_LESS);
             glDepthMask(GL_TRUE);
@@ -235,7 +214,9 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
             renderStats.submittedTriangles += mesh.indices.size() / 3;
         }
     }
+
     wasInstancing = enableInstance;
+    wasCulling = enableCulling;
 }
 
 bool SceneRenderer::offscreenPicking(OrbitCamera* const myCamera, PickingFrameBuffer* const pickBuffer, GLFWwindow* myWindow, CadScene& cadScene, std::unordered_map<SceneSelection, PickId, SceneSelectionHash>& pickMap){

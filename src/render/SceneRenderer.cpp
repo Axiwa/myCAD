@@ -76,20 +76,16 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
                                 RenderItem item {key, curr->worldTransform, nodebox};
                                 renderItems.emplace_back(item);
                             }
-
-                            renderStats.visibleOccurrences++;
                         }
                     }
                 }
             }
         }
-
-        if (enableInstance){
-            std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
-                return a.key < b.key;
-            });
-        }
+        std::sort(renderItems.begin(), renderItems.end(), [](const RenderItem& a, const RenderItem& b){
+            return a.key < b.key;
+        });
     }
+    renderStats.visibleOccurrences = renderItems.size();
 
     bool isCullingChanged = (enableCulling && myCamera->calculateFrustum()) || (!wasCulling && enableCulling) || (wasCulling && !enableCulling);
 
@@ -118,6 +114,9 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
                 }
                 if (!enableCulling || myCamera->inFrustum(renderItems[right].nodebbox)){
                     mats.push_back(renderItems[right].worldTransform);
+                }
+                else{
+                    renderStats.culledOccurrences++;
                 }
 
                 RenderBatch batch;
@@ -152,11 +151,6 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
             }
 
             for(auto& key: diffKeys) {
-                
-                if (renderBatches.find(key) != renderBatches.end()){
-                    renderBatches.erase(key);
-                }
-
                 int left = 0;
                 while(left < renderItems.size()){
                     if (renderItems[left].key == key){
@@ -180,7 +174,9 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
                         mats.push_back(renderItems[right].worldTransform);
                     }
 
-                    RenderBatch batch;
+                    auto [it, inserted] = renderBatches.try_emplace(key);
+                    auto& batch = it->second;
+
                     batch.key = renderItems[right].key;
                     batch.instanceCount = static_cast<GLsizei>(mats.size());
                     batch.uploadData(mats);
@@ -190,24 +186,28 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
             }
         }
         
-
+        renderStats.culledOccurrences = renderItems.size();
         for (auto& batchpair : renderBatches) {
             auto& batch = batchpair.second;
-            size_t documentIndex = batch.key.documentIndex;
-            size_t prototypeIndex = batch.key.prototypeIndex;
+            if (batch.instanceCount > 0) {
+                size_t documentIndex = batch.key.documentIndex;
+                size_t prototypeIndex = batch.key.prototypeIndex;
 
-            meshBuffers[documentIndex][prototypeIndex].value().setInstance(batch.instanceVBO);
+                meshBuffers[documentIndex][prototypeIndex].value().setInstance(batch.instanceVBO);
 
-            bool mirrored = batch.key.isMirrored;
-            glFrontFace(mirrored ? GL_CW : GL_CCW);
-            instanceProgram.setVec4("baseColor", batch.key.color);
+                bool mirrored = batch.key.isMirrored;
+                glFrontFace(mirrored ? GL_CW : GL_CCW);
+                instanceProgram.setVec4("baseColor", batch.key.color);
 
-            // Bind VAOInstanced and Upload data
-            meshBuffers[documentIndex][prototypeIndex].value().drawInstance(batch.instanceCount);
+                // Bind VAOInstanced and Upload data
+                meshBuffers[documentIndex][prototypeIndex].value().drawInstance(batch.instanceCount);
 
-            auto& mesh = cadScene.docs[documentIndex].prototypes[prototypeIndex].mesh;
-            renderStats.drawCalls++;
-            renderStats.submittedTriangles += (mesh.indices.size() / 3) * batch.instanceCount;
+                auto& mesh = cadScene.docs[documentIndex].prototypes[prototypeIndex].mesh;
+                renderStats.drawCalls++;
+                renderStats.submittedTriangles += (mesh.indices.size() / 3) * batch.instanceCount;
+
+                renderStats.culledOccurrences-=batch.instanceCount;
+            }
         }
     }
     else{

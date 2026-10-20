@@ -77,7 +77,7 @@ int main(int argc, char* argv[]) {
     if (isStreeTest){
         // find first leaf node
         SceneNode* leaf = nullptr;
-        for (auto root : test.roots) {
+        for (auto& root : test.roots) {
             std::stack<SceneNode*> m_stack;
             m_stack.push(root);
             while (!m_stack.empty()) {

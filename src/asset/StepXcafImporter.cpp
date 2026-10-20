@@ -78,6 +78,7 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
     nodeId++;
     node->id = nodeId;
     node->documentIndex = doc.docId;
+    doc.nodeLookup[node->id] = node;
 
     TDF_Label occurrenceLabel = root;
     TDF_Label definitionLabel = root;
@@ -159,7 +160,7 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
         shapeTool->GetComponents(definitionLabel, components, false);
 
         for (int i = 1; i <= components.Length(); i++) {
-            node->children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, doc, node, world, node->colorStyle, level+1, nodeId));
+            node->children.push_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, doc, node, world, node->colorStyle, level+1, nodeId));
         }
     }
     else {

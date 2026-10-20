@@ -14,6 +14,7 @@
 #include "common/Bbox.hpp"
 #include "geometry/MeshData.hpp"
 #include "render/PickingFrameBuffer.hpp"
+#include <unordered_map>
 
 enum class MeshStatus{
     Ready,
@@ -164,6 +165,8 @@ struct CadDocument {
 
     std::vector<SceneNode*> roots;
     std::vector<std::unique_ptr<SceneNode>> docNodes;
+    
+    std::unordered_map<SceneNodeId, SceneNode*> nodeLookup;
 
     uint64_t numNodes = 0;
     uint32_t docId = 0;

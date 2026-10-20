@@ -72,11 +72,12 @@ static std::string GetLabelName(const TDF_Label& label){
     }
 }
 
-SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, std::vector<PartPrototype>& partsvec, const gp_Trsf& parent, const ResolvedStyle& parentcolor, int level, SceneNodeId& nodeId) {
-    SceneNode* node = new SceneNode();
+SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, CadDocument& doc, SceneNode* parent, gp_Trsf& parentTrsf, const ResolvedStyle& parentcolor, int level, SceneNodeId& nodeId) {
+    SceneNode* node = doc.createNode();
     node->colorStyle = parentcolor;
     nodeId++;
     node->id = nodeId;
+    node->documentIndex = doc.docId;
 
     TDF_Label occurrenceLabel = root;
     TDF_Label definitionLabel = root;
@@ -116,7 +117,7 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
 
     const TopLoc_Location location = XCAFDoc_ShapeTool::GetLocation(occurrenceLabel);
     gp_Trsf local = location.Transformation();
-    gp_Trsf world = parent * local;
+    gp_Trsf world = parentTrsf * local;
     node->localTransform = ToGLMTransform(local);
     node->worldTransform = ToGLMTransform(world);
 
@@ -128,7 +129,7 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
             testOffset.SetTranslation(gp_Vec(150, 0, 0));
 
             local = testOffset * local * testMirror;
-            world = parent * local;
+            world = parentTrsf * local;
             node->localTransform = ToGLMTransform(local);
             node->worldTransform = ToGLMTransform(world);
         }
@@ -158,7 +159,7 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
         shapeTool->GetComponents(definitionLabel, components, false);
 
         for (int i = 1; i <= components.Length(); i++) {
-            node->children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, partsvec, world, node->colorStyle, level+1, nodeId));
+            node->children.emplace_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, doc, node, world, node->colorStyle, level+1, nodeId));
         }
     }
     else {
@@ -203,9 +204,9 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
                 prototype.localBbox = bbox;
             }
 
-            partsmap[prototype.labelEntry] = static_cast<uint32_t>(partsvec.size());
-            node->prototypeIndex = partsvec.size();
-            partsvec.emplace_back(std::move(prototype));
+            partsmap[prototype.labelEntry] = static_cast<uint32_t>(doc.prototypes.size());
+            node->prototypeIndex = doc.prototypes.size();
+            doc.prototypes.emplace_back(std::move(prototype));
         }
     }
 
@@ -220,12 +221,12 @@ m_application(new TDocStd_Application())
     BinXCAFDrivers::DefineFormat(m_application);
 }
 
-bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& result){
-    result.clear();
+bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& doc){
+    doc.clear();
 
-    // TODO: asset result's vectors are empty
-    m_application->NewDocument("BinXCAF", result.m_document);
-    if (result.m_document.IsNull()) {
+    // TODO: asset doc's vectors are empty
+    m_application->NewDocument("BinXCAF", doc.m_document);
+    if (doc.m_document.IsNull()) {
         std::cerr << "Error: Cannot create an BinXCAF document" << std::endl;
         return false;
     }
@@ -247,14 +248,14 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
         return false;        
     }
     // 4. 传输数据到 Document
-    bool tStatus = aReader.Transfer(result.m_document);
+    bool tStatus = aReader.Transfer(doc.m_document);
     if (!tStatus){
         std::cerr << "Import Error: Cannot transfer from "<< path << std::endl;
         return false;      
     }
 
     // 5. 检查 FreeShapes
-    occ::handle<XCAFDoc_ShapeTool> shapeTool = XCAFDoc_DocumentTool::ShapeTool(result.m_document->Main());
+    occ::handle<XCAFDoc_ShapeTool> shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc.m_document->Main());
     NCollection_Sequence<TDF_Label> aFreeShapes;
     shapeTool->GetFreeShapes(aFreeShapes);
     if (aFreeShapes.IsEmpty()) {
@@ -264,23 +265,23 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& resu
 
     std::cout<<"Number of FreeShapes: "<<aFreeShapes.Length()<<std::endl<<std::endl;
 
-    occ::handle<XCAFDoc_ColorTool> colorTool = XCAFDoc_DocumentTool::ColorTool(result.m_document->Main());
+    occ::handle<XCAFDoc_ColorTool> colorTool = XCAFDoc_DocumentTool::ColorTool(doc.m_document->Main());
     // 6. 打印装配树
-    result.sourcePath = path;
+    doc.sourcePath = path;
     std::unordered_map<std::string, uint32_t> prototypes;
     gp_Trsf trsf;
     ResolvedStyle color;
     SceneNodeId nodeId = 0;
     for (NCollection_Sequence<TDF_Label>::Iterator it(aFreeShapes); it.More(); it.Next()) {
         const TDF_Label& root = it.Value();
-        SceneNode* node = traverse(shapeTool, colorTool, root, prototypes, result.prototypes, trsf, color, 0, nodeId);
-        result.roots.emplace_back(node);
+        SceneNode* node = traverse(shapeTool, colorTool, root, prototypes, doc, nullptr, trsf, color, 0, nodeId);
+        doc.roots.push_back(node);
     }
-    result.numNodes = nodeId;
+    doc.numNodes = nodeId;
 
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Prototypes: " << std::endl;
-    for(auto& prototype: result.prototypes){
+    for(auto& prototype: doc.prototypes){
         bool isMirroredShape = prototype.definitionShape.Location().Transformation().IsNegative();
         std::cout << "--- " << std::endl;
         std::cout << "Label entry: " << prototype.labelEntry << "\n";

@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
 
     bool needsInitialFit = true;
 
-    CadDocument test;
+    CadDocument test(0);
     std::filesystem::path defaultModel = exePath / "data" / "step" / "linkrods.step";
     std::string path = defaultModel.string();
     if (argc > 1) {

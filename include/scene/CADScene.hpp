@@ -105,6 +105,7 @@ struct SceneNode {
     std::optional<std::size_t> prototypeIndex; // if this isn't a leaf node, there is no prototypeIndex
     ResolvedStyle colorStyle;
 
+    SceneNode* parent = nullptr;
     std::vector<SceneNode*> children;
 
     bool isVisible = true;
@@ -112,8 +113,6 @@ struct SceneNode {
     bool isTransformDirty = true;
     Bbox worldBbox;
 
-    // Runtime info
-    SceneNode* parent = nullptr;
     size_t documentIndex = 0;
 };
 
@@ -157,23 +156,42 @@ public:
 
 // list of scenenode
 struct CadDocument {
+    CadDocument(uint32_t id): docId(id) {}
     std::filesystem::path sourcePath;
     occ::handle<TDocStd_Document> m_document;
 
     std::vector<PartPrototype> prototypes;
+
     std::vector<SceneNode*> roots;
+    std::vector<std::unique_ptr<SceneNode>> docNodes;
 
     uint64_t numNodes = 0;
+    uint32_t docId = 0;
+
+    SceneNode* createNode(){
+        std::unique_ptr<SceneNode> node(new SceneNode());
+        SceneNode* nodeptr = node.get();
+        docNodes.push_back(std::move(node));
+        return nodeptr;
+    }
+
+    void setParent(SceneNode* node, SceneNode* parent){
+        // TODO
+    }
+
+    void destroyNode(SceneNode* node){
+        // TODO
+    }
 
     void clear() {
         sourcePath.clear();
         m_document.Nullify();
         prototypes.clear();
         for(int i = 0; i<roots.size(); i++){
-            delete roots[i];
             roots[i] = nullptr;
         }
         roots.clear();
+        docNodes.clear();
     }
 };
 

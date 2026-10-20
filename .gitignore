@@ -1,3 +1,10 @@
 build/
 .vscode
 .codely-cli
+
+# 第三方预编译包体积过大，改由 scripts/fetch-external.ps1 下载
+External/opencascade-8.0.1-vc14-64/
+External/3rdparty-vc14-64/
+
+# 调试符号不入库
+*.pdb

@@ -47,6 +47,16 @@ set(GLFW_ROOT "${PROJECT_SOURCE_DIR}/External/glfw-3.4" CACHE PATH "GLFW root di
 set(OCCT_ROOT "${PROJECT_SOURCE_DIR}/External/opencascade-8.0.1-vc14-64")
 set(OCCT_3RDPARTY_ROOT "${PROJECT_SOURCE_DIR}/External/3rdparty-vc14-64")
 
+# 第三方预编译包不入库，首次构建前需先用脚本下载
+if(NOT EXISTS "${OCCT_ROOT}/cmake/OpenCASCADEConfig.cmake"
+   OR NOT EXISTS "${OCCT_3RDPARTY_ROOT}/tbb-2021.13.0-x64/lib/cmake/TBB/TBBConfig.cmake")
+    message(FATAL_ERROR
+        "缺少第三方预编译包，请先运行：\n"
+        "  powershell -ExecutionPolicy Bypass -File scripts/fetch-external.ps1\n"
+        "或手动把 opencascade-8.0.1-vc14-64 与 3rdparty-vc14-64 放到 ${PROJECT_SOURCE_DIR}/External 下。"
+    )
+endif()
+
 # OCCT 的 imported target 依赖 TBB::tbb / TBB::tbbmalloc，必须先提供这两个目标
 find_package(TBB CONFIG REQUIRED
     PATHS

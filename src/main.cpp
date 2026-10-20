@@ -344,7 +344,7 @@ int main(int argc, char* argv[]) {
         }
         // Scene Node
         SceneNode* changingNode = nullptr;
-        scenePanel.drawHierachy(cadScene, sceneState, &changingNode);
+        scenePanel.drawHierarchy(cadScene, sceneState, &changingNode);
         if (changingNode){
             if (changingNode->effectiveVisible == true){
                 nodeUpdateList.addNode(changingNode);

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.21)
 project(helloCAD)
 
 # 设置全局 C++ 标准
@@ -44,7 +44,15 @@ add_library(imgui STATIC
 
 # 设置 GLFW 路径为缓存变量
 set(GLFW_ROOT "${PROJECT_SOURCE_DIR}/External/glfw-3.4" CACHE PATH "GLFW root directory")
-set(OCCT_ROOT "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/install-debug")
+set(OCCT_ROOT "${PROJECT_SOURCE_DIR}/External/opencascade-8.0.1-vc14-64")
+set(OCCT_3RDPARTY_ROOT "${PROJECT_SOURCE_DIR}/External/3rdparty-vc14-64")
+
+# OCCT 的 imported target 依赖 TBB::tbb / TBB::tbbmalloc，必须先提供这两个目标
+find_package(TBB CONFIG REQUIRED
+    PATHS
+        "${OCCT_3RDPARTY_ROOT}/tbb-2021.13.0-x64/lib/cmake/TBB"
+    NO_DEFAULT_PATH
+)
 
 find_package(OpenCASCADE 8.0.1 CONFIG REQUIRED
     COMPONENTS
@@ -113,6 +121,22 @@ target_link_libraries(helloCAD PRIVATE
     imgui
 )
 
+# OCCT 的 DLL 在运行期还会加载 3rdparty 的 DLL（TKernel->TBB/jemalloc，
+# TKService->FreeImage/freetype/ffmpeg/openvr），这些不是 CMake target，
+# 需要按 Debug/Release 手动把对应版本拷贝到可执行文件目录。
+set(OCCT_3RDPARTY_DLLS
+    "${OCCT_3RDPARTY_ROOT}/tbb-2021.13.0-x64/bin/$<IF:$<CONFIG:Debug>,tbb12_debug.dll,tbb12.dll>"
+    "${OCCT_3RDPARTY_ROOT}/tbb-2021.13.0-x64/bin/$<IF:$<CONFIG:Debug>,tbbmalloc_debug.dll,tbbmalloc.dll>"
+    "${OCCT_3RDPARTY_ROOT}/jemalloc-vc14-64/$<IF:$<CONFIG:Debug>,debug/bin,bin>/jemalloc.dll"
+    "${OCCT_3RDPARTY_ROOT}/freetype-2.13.3-x64/bin/freetype.dll"
+    "${OCCT_3RDPARTY_ROOT}/freeimage-3.18.0-x64/bin/FreeImage.dll"
+    "${OCCT_3RDPARTY_ROOT}/ffmpeg-3.3.4-64/bin/avcodec-57.dll"
+    "${OCCT_3RDPARTY_ROOT}/ffmpeg-3.3.4-64/bin/avformat-57.dll"
+    "${OCCT_3RDPARTY_ROOT}/ffmpeg-3.3.4-64/bin/avutil-55.dll"
+    "${OCCT_3RDPARTY_ROOT}/ffmpeg-3.3.4-64/bin/swscale-4.dll"
+    "${OCCT_3RDPARTY_ROOT}/openvr-1.14.15-64/bin/win64/openvr_api.dll"
+)
+
 # 构建后自动复制 DLL（非常推荐）
 add_custom_command(
     TARGET helloCAD POST_BUILD
@@ -125,9 +149,17 @@ add_custom_command(
         $<TARGET_RUNTIME_DLLS:helloCAD>
         $<TARGET_FILE_DIR:helloCAD>
 
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${OCCT_3RDPARTY_DLLS}
+        "$<TARGET_FILE_DIR:helloCAD>"
+
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${PROJECT_SOURCE_DIR}/fonts"
         "$<TARGET_FILE_DIR:helloCAD>/fonts"
+
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${OCCT_ROOT}/data/step"
+        "$<TARGET_FILE_DIR:helloCAD>/data/step"
 
     COMMAND_EXPAND_LISTS
 )

@@ -60,7 +60,8 @@ int main(int argc, char* argv[]) {
     bool needsInitialFit = true;
 
     CadDocument test;
-    std::string path = "C:/Users/28025/Learn/model/chassis.step"; // "C:/Users/28025/Learn/model/chassis.step"
+    std::filesystem::path defaultModel = exePath / "data" / "step" / "linkrods.step";
+    std::string path = defaultModel.string();
     if (argc > 1) {
         path = argv[1];
         std::cout << "Import path: " << path << std::endl;
@@ -69,7 +70,7 @@ int main(int argc, char* argv[]) {
         std::cout<<"Null import path, use default: " << path <<std::endl;
     }
 
-    if (!xcafImporter.load(path.c_str(), test)) { // "C:/Users/28025/Learn/Geometry/OCCT-8.0.1/data/step/linkrods.step"
+    if (!xcafImporter.load(path.c_str(), test)) {
         exit(1);
     }
 

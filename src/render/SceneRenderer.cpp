@@ -48,15 +48,15 @@ void SceneRenderer::collectObjects(CadScene& cadScene){
     }
 }
 
-void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::vector<SceneNode*>>& runtimeNodes, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, SceneNodeUpdateList& updateList, const DraftAnalysisSettings& draftSetting){
+void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene, SceneRuntimeState& state, RenderStats& renderStats, SceneNodeUpdateList& updateList, const DraftAnalysisSettings& draftSetting){
     std::optional<RenderItem> selected;
     if (state.sceneStructureDirty || state.visibleBoundsDirty){
         renderItems.clear();
 
-        for(int i = 0; i < runtimeNodes.size(); i++){
+        for(int i = 0; i < cadScene.docs.size(); i++){
             const auto& doc = cadScene.docs[i];
-            for (int j = 1; j < runtimeNodes[i].size(); j++) {
-                auto curr = runtimeNodes[i][j];
+            for (int j = 1; j < doc.docNodes.size(); j++) {
+                auto curr = doc.docNodes[j].get();
                 if (curr->effectiveVisible && curr->prototypeIndex.has_value()){
                     auto index = curr->prototypeIndex.value();
 
@@ -246,9 +246,13 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
     if (state.selection.has_value()){       
         size_t documentIndex = state.selection->documentIndex;
         SceneNodeId nodeId = state.selection->nodeId;
-        SceneNode* curr = runtimeNodes[documentIndex][nodeId];
 
-        if (curr->effectiveVisible && (!enableCulling || myCamera->inFrustum(curr->worldBbox)) && curr->prototypeIndex.has_value()){
+        SceneNode* curr = nullptr;
+        if (cadScene.docs[documentIndex].nodeLookup.find(nodeId) != cadScene.docs[documentIndex].nodeLookup.end()){
+            curr = cadScene.docs[documentIndex].nodeLookup[nodeId];
+        }
+
+        if (curr && curr->effectiveVisible && (!enableCulling || myCamera->inFrustum(curr->worldBbox)) && curr->prototypeIndex.has_value()){
             size_t prototypeIndex = curr->prototypeIndex.value();
 
             shaderProgram.use();

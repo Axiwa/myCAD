@@ -54,7 +54,6 @@ std::filesystem::path executableDirectory()
 int main(int argc, char* argv[]) {
     CadScene cadScene;
     StepXcafImporter xcafImporter;
-    std::vector<std::vector<SceneNode*>> runtimeNodes;
     std::filesystem::path exePath = executableDirectory();
 
     bool needsInitialFit = true;
@@ -159,7 +158,6 @@ int main(int argc, char* argv[]) {
     size_t numPrototype = 0;
     size_t numSceneNode = 0;
 
-    cadScene.getRuntimeNodes(runtimeNodes);
     for (int i = 0; i<cadScene.docs.size(); i++) {
         const auto& doc = cadScene.docs[i];
         for (const auto& prototype : doc.prototypes) {
@@ -168,7 +166,7 @@ int main(int argc, char* argv[]) {
                 renderStats.uniquePrototypeTriangles += prototype.mesh.indices.size() / 3;
             }
         }
-        numSceneNode += (runtimeNodes[i].size() - 1);
+        numSceneNode += doc.numNodes;
     }
 
     std::vector<SceneSelection> pickRegistry;
@@ -200,21 +198,15 @@ int main(int argc, char* argv[]) {
 
         // this will not happen for now... randomly adding new variables
         if (sceneState.sceneStructureDirty){
-            for(int i = 0; i<runtimeNodes.size(); i++){
-                auto& doc = runtimeNodes[i];
-                for(auto node: doc){
-                    nodeUpdateList.removeNode(node);
-                }
-            }
-            cadScene.getRuntimeNodes(runtimeNodes);
             sceneRenderer.collectObjects(cadScene);
 
             pickRegistry.clear();
             pickMap.clear();
-            for(int i = 0; i<runtimeNodes.size(); i++){
-                auto& doc = runtimeNodes[i];
-                for(auto node: doc){
-                    nodeUpdateList.addNode(node);
+            for(int i = 0; i<cadScene.docs.size(); i++){
+                auto& doc = cadScene.docs[i];
+                for(auto& node: doc.docNodes){
+                    nodeUpdateList.addNode(node.get());
+                    
                     if (node && node->prototypeIndex.has_value()){
                         auto index = node->prototypeIndex.value();
                         if (cadScene.docs[i].prototypes[index].meshStatus == MeshStatus::Ready){
@@ -239,7 +231,7 @@ int main(int argc, char* argv[]) {
                         renderStats.uniquePrototypeTriangles += prototype.mesh.indices.size() / 3;
                     }
                 }
-                numSceneNode += (runtimeNodes[i].size() - 1);
+                numSceneNode += doc.numNodes;
             }
 
             sceneState.visibleBoundsDirty = true;
@@ -275,7 +267,7 @@ int main(int argc, char* argv[]) {
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.start();
         }
-        sceneRenderer.renderScene(myWindow.GetCamera(), runtimeNodes, cadScene, sceneState, renderStats, nodeUpdateList, draftSetting);
+        sceneRenderer.renderScene(myWindow.GetCamera(), cadScene, sceneState, renderStats, nodeUpdateList, draftSetting);
         if (frameCount >= cpuProfiler.warmupCount){
             cpuProfiler.accumulate();
         }
@@ -293,8 +285,8 @@ int main(int argc, char* argv[]) {
                 Bbox rootbox;
                 size_t docindex = sceneState.selection->documentIndex;
                 SceneNodeId nodeid = sceneState.selection->nodeId;
-                if (docindex < runtimeNodes.size() && nodeid < runtimeNodes[docindex].size()) {
-                    SceneNode* root = cadScene.resolveSelection(sceneState.selection.value(), runtimeNodes);
+                if (docindex < cadScene.docs.size() && cadScene.docs[docindex].nodeLookup.find(nodeid) != cadScene.docs[docindex].nodeLookup.end()) {
+                    SceneNode* root = cadScene.resolveSelection(sceneState.selection.value());
                     std::stack<const SceneNode*> m_stack;
                     if (root) m_stack.push(root);
                     while (!m_stack.empty()) {
@@ -376,7 +368,7 @@ int main(int argc, char* argv[]) {
 
         {
             if (sceneState.selection.has_value()) {
-                SceneNode* node = cadScene.resolveSelection(sceneState.selection.value(), runtimeNodes);
+                SceneNode* node = cadScene.resolveSelection(sceneState.selection.value());
 
                 if (node) {
                     ImGui::SetNextWindowPos(ImVec2((float)width, 0.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));

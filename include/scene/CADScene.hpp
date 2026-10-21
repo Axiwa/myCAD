@@ -209,58 +209,19 @@ struct CadDocument {
 
 struct CadScene {
     std::vector<CadDocument> docs;
-    std::unordered_map<uint32_t, CadDocument*> docLookup; // for later use
+    std::unordered_map<size_t, CadDocument*> docLookup; // for later use
 
-    void getRuntimeNodes(std::vector<std::vector<SceneNode*>>& runtimeNodes){
-        runtimeNodes.clear();
-        runtimeNodes.resize(docs.size());
-        for (int i = 0; i < docs.size(); i++) {
-            auto& doc = docs[i];
-            runtimeNodes[i].assign(static_cast<std::size_t>(doc.numNodes) + 1, nullptr);
-
-            for (auto root : doc.roots) {
-                std::stack<SceneNode*> m_stack;
-                m_stack.push(root);
-                                
-                while (!m_stack.empty()) {
-                    SceneNode* curr = m_stack.top();
-                    curr->documentIndex = i;
-                    m_stack.pop();
-                    runtimeNodes[i][curr->id] = curr;
-
-                    // Update renderable bbox
-                    if (curr->prototypeIndex.has_value()) {
-                        auto index = curr->prototypeIndex.value();
-                        if (index < doc.prototypes.size()) {
-                            if (doc.prototypes[index].meshStatus == MeshStatus::Ready){
-                                Bbox nodebox = doc.prototypes[index].localBbox;
-                                nodebox.applyTransform(curr->worldTransform);
-                                curr->worldBbox = nodebox;
-                                curr->isTransformDirty = false;
-                            }
-                        }
-                    }
-
-                    for (auto it = curr->children.rbegin(); it != curr->children.rend(); it++) {
-                        (*it)->parent = curr;
-                        m_stack.push(*it);
-                    }
-                }
-            }
-        }
-    }
-
-    SceneNode* resolveSelection(SceneSelection& selection, std::vector<std::vector<SceneNode*>>& runtimeNodes){
-        if (selection.documentIndex >= runtimeNodes.size()) {
+    SceneNode* resolveSelection(SceneSelection& selection){
+        if (selection.documentIndex >= docs.size()) {
             return nullptr;
         }
 
-        auto& docs = runtimeNodes[selection.documentIndex];
-        if (selection.nodeId >= docs.size()) {
+        auto& doc = docs[selection.documentIndex];
+        if (doc.nodeLookup.find(selection.nodeId) == doc.nodeLookup.end()) {
             return nullptr;
         }
         
-        SceneNode* node = runtimeNodes[selection.documentIndex][selection.nodeId];
+        SceneNode* node = doc.nodeLookup[selection.nodeId];
         if (!node || node->id != selection.nodeId) {
             return nullptr;
         }

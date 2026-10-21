@@ -33,7 +33,7 @@
 
 bool isFaceMirror = false;
 bool isNodeMirror = false;
-bool isStreeTest = false;
+bool isStressTest = false;
 bool enableInstance = true;
 bool enableCulling = false;
 
@@ -71,54 +71,6 @@ int main(int argc, char* argv[]) {
 
     if (!xcafImporter.load(path.c_str(), test)) {
         exit(1);
-    }
-
-    if (isStreeTest){
-        // find first leaf node
-        SceneNode* leaf = nullptr;
-        for (auto& root : test.roots) {
-            std::stack<SceneNode*> m_stack;
-            m_stack.push(root);
-            while (!m_stack.empty()) {
-                SceneNode* curr = m_stack.top();
-                m_stack.pop();
-                if (curr->prototypeIndex.has_value()) {
-                    leaf = curr;
-                    break;
-                }
-                for (auto& child : curr->children) {
-                    m_stack.push(child);
-                }
-            }
-            if (leaf) break;
-        }
-        if (!leaf) {
-            std::cerr << "No renderable leaf for stress test\n";
-            return 1;
-        }
-        const auto prototypeIndex = leaf->prototypeIndex;
-        const auto baseTransform = leaf->worldTransform;
-        const auto colorStyle = leaf->colorStyle;
-        const auto baseName = leaf->name;
-        const auto baseEntry = leaf->occLabelEntry;
-
-        uint64_t oriNum = test.numNodes + 1;
-        uint64_t num = 256;
-        for (SceneNodeId i = oriNum; i < oriNum + num*num; i++) {
-            const glm::dmat4 offset = glm::translate(glm::dmat4(1.0), glm::dvec3((i/num) * 1, (i % num) * 1, 0.0));
-            test.roots.push_back(new SceneNode());
-            test.roots.back()->id = i;
-            test.roots.back()->occLabelEntry = baseEntry + "/" + std::to_string(i);
-            test.roots.back()->name = baseName + "/" + std::to_string(i);
-            test.roots.back()->localTransform = offset * baseTransform;
-            test.roots.back()->worldTransform = test.roots.back()->localTransform;
-            if (i % 2 == 0){
-                test.roots.back()->worldTransform[0] = -test.roots.back()->worldTransform[0];
-            }
-            test.roots.back()->prototypeIndex = prototypeIndex;
-            test.roots.back()->colorStyle = colorStyle;
-            test.numNodes++;
-        }
     }
     cadScene.docs.push_back(std::move(test));
 
@@ -167,6 +119,10 @@ int main(int argc, char* argv[]) {
             }
         }
         numSceneNode += doc.numNodes;
+
+        for(auto& node: doc.docNodes){
+            nodeUpdateList.addNode(node.get());
+        }
     }
 
     std::vector<SceneSelection> pickRegistry;
@@ -205,8 +161,7 @@ int main(int argc, char* argv[]) {
             for(int i = 0; i<cadScene.docs.size(); i++){
                 auto& doc = cadScene.docs[i];
                 for(auto& node: doc.docNodes){
-                    nodeUpdateList.addNode(node.get());
-                    
+                    if (node->isPendingKill) continue;                
                     if (node && node->prototypeIndex.has_value()){
                         auto index = node->prototypeIndex.value();
                         if (cadScene.docs[i].prototypes[index].meshStatus == MeshStatus::Ready){
@@ -220,7 +175,6 @@ int main(int argc, char* argv[]) {
             }
 
             numPrototype = 0;
-            numSceneNode = 0;
             renderStats.uniquePrototypeTriangles = 0;
 
             for (int i = 0; i<cadScene.docs.size(); i++) {
@@ -231,7 +185,6 @@ int main(int argc, char* argv[]) {
                         renderStats.uniquePrototypeTriangles += prototype.mesh.indices.size() / 3;
                     }
                 }
-                numSceneNode += doc.numNodes;
             }
 
             sceneState.visibleBoundsDirty = true;
@@ -278,6 +231,16 @@ int main(int argc, char* argv[]) {
         }
         sceneState.visibleBoundsDirty = false;
         sceneState.sceneStructureDirty = false;
+
+        for(auto& doc: cadScene.docs){
+            doc.flush();
+        }
+
+        numSceneNode = 0;
+        for (int i = 0; i<cadScene.docs.size(); i++) {
+            const auto& doc = cadScene.docs[i];
+            numSceneNode += doc.numNodes;
+        }
 
         isPressed = (glfwGetKey(myWindow.GetWindow(), GLFW_KEY_F) == GLFW_PRESS);
         if (isPressed && !wasPressed) {
@@ -334,7 +297,8 @@ int main(int argc, char* argv[]) {
         if (cpuProfiler.getTotalFrames() >= cpuProfiler.maxCount && cpuProfiler.getTotalFrames() % cpuProfiler.maxCount == 0){
             renderStats.cpuRenderMilliseconds = cpuProfiler.getAvgTime();
         }
-        // Scene Node
+
+        // Cosume visibility
         SceneNode* changingNode = nullptr;
         scenePanel.drawHierarchy(cadScene, sceneState, &changingNode);
         if (changingNode){
@@ -366,27 +330,25 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        {
-            if (sceneState.selection.has_value()) {
-                SceneNode* node = cadScene.resolveSelection(sceneState.selection.value());
+        if (sceneState.selection.has_value()) {
+            SceneNode* node = cadScene.resolveSelection(sceneState.selection.value());
 
-                if (node) {
-                    ImGui::SetNextWindowPos(ImVec2((float)width, 0.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-                    ImGui::SetNextWindowSize(ImVec2(250.0f, 200.0f), ImGuiCond_Once);
-                    ImGui::Begin("Node Info");
+            if (node) {
+                ImGui::SetNextWindowPos(ImVec2((float)width, 0.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+                ImGui::SetNextWindowSize(ImVec2(250.0f, 200.0f), ImGuiCond_Once);
+                ImGui::Begin("Node Info");
 
-                    ImGui::Text("Node name: %s", node->name.c_str());
-                    ImGui::Text("Node ID: %zu", node->id);
-                    ImGui::Text("Node label: %s", node->occLabelEntry.c_str());
-                    ImGui::Text("Color source: %s", node->colorStyle.toSourceString().c_str());
-                    ImGui::Text("Node visible: %d", node->isVisible);
-                    
-                    if (node->prototypeIndex.has_value()) {
-                        ImGui::Text("Prototype Name: %s", cadScene.docs[sceneState.selection->documentIndex].prototypes[node->prototypeIndex.value()].name.c_str());
-                    }
-
-                    ImGui::End();
+                ImGui::Text("Node name: %s", node->name.c_str());
+                ImGui::Text("Node ID: %zu", node->id);
+                ImGui::Text("Node label: %s", node->occLabelEntry.c_str());
+                ImGui::Text("Color source: %s", node->colorStyle.toSourceString().c_str());
+                ImGui::Text("Node visible: %d", node->isVisible);
+                
+                if (node->prototypeIndex.has_value()) {
+                    ImGui::Text("Prototype Name: %s", cadScene.docs[sceneState.selection->documentIndex].prototypes[node->prototypeIndex.value()].name.c_str());
                 }
+
+                ImGui::End();
             }
         }
 
@@ -400,6 +362,60 @@ int main(int argc, char* argv[]) {
             bool cullingChange = ImGui::Checkbox("Culling", &enableCulling);
             if (cullingChange) {
                 myWindow.GetCamera()->setDirty();
+            }
+            bool streeTestChange = ImGui::Checkbox("StressTest", &isStressTest);
+            if (streeTestChange) {
+                    const int prototypeIndex = 1;
+                    const int docIndex = 0;
+                    auto& doc = cadScene.docs[docIndex];
+                    const auto prototype = doc.prototypes[prototypeIndex];
+                if (isStressTest){ // to add node with prototype 0
+                    const glm::dmat4 baseTransform = glm::dmat4(1.0f);
+                    auto colorStyle = ResolvedStyle();
+                    colorStyle.surfaceColor = glm::vec4(0.2f, 0.3f, 0.5f, 1.0f);
+                    const auto baseName = prototype.name;
+                    const auto baseEntry = prototype.labelEntry;
+
+                    uint64_t oriNum = test.numNodes + 1;
+                    uint64_t num = 256;
+                    SceneNode* newroot = doc.createNode();
+                    newroot->name = "stress root";
+                    nodeUpdateList.addNode(newroot);
+                    doc.roots.push_back(newroot);
+                    for (SceneNodeId i = oriNum; i < oriNum + num*num; i++) {
+                        const glm::dmat4 offset = glm::translate(glm::dmat4(1), glm::dvec3((i/num) * 1, (i % num) * 1, 0.0));
+                        SceneNode* newnode = doc.createNode();
+                        newnode->parent = newroot;
+                        newnode->occLabelEntry = baseEntry + "/" + std::to_string(i);
+                        newnode->name = baseName + "/" + std::to_string(i);
+                        newnode->localTransform = offset * baseTransform;
+                        newnode->worldTransform = newnode->localTransform;
+                        newnode->colorStyle = colorStyle;
+                        if (i % 2 == 0){
+                            newnode->worldTransform[0] = -newnode->worldTransform[0];
+                            newnode->colorStyle.surfaceColor = glm::vec4(0.5f, 0.2f, 0.3f, 1.0f);
+                        }
+                        newnode->prototypeIndex = prototypeIndex;
+                        
+                        Bbox nodebox = prototype.localBbox;
+                        nodebox.applyTransform(newnode->worldTransform);
+                        newnode->worldBbox = nodebox;
+                        newnode->isTransformDirty = false;
+                        newroot->children.push_back(newnode);
+                        nodeUpdateList.addNode(newnode);
+                    }
+                }
+                else{ // to remove node
+                    SceneNode* newroot = nullptr;
+                    for(auto& node: doc.docNodes){
+                        if (node->name == "stress root"){
+                            newroot = node.get();
+                            break;
+                        }
+                    }
+                    doc.destroyNodeDry(newroot, nodeUpdateList);
+                }
+                sceneState.sceneStructureDirty = true;
             }
             ImGui::Text("Number of document: %zu", cadScene.docs.size());
             ImGui::Text("Number of prototype: %zu", numPrototype);

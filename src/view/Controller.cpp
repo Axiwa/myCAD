@@ -64,7 +64,7 @@ Controller::Controller(){
     m_window = glfwCreateWindow(width, height, "Scene", nullptr, nullptr);
     if (m_window == nullptr){ glfwTerminate(); }
 
-    m_camera = new OrbitCamera(width, height, 0.7854f, 0.1f, 700.0f);
+    m_camera = new OrbitCamera(width, height, 0.7854f, 0.1f, 1000.0f);
     m_pickBuffer = new PickingFrameBuffer();
 
     glfwMakeContextCurrent(m_window);

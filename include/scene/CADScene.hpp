@@ -15,6 +15,7 @@
 #include "geometry/MeshData.hpp"
 #include "render/PickingFrameBuffer.hpp"
 #include <unordered_map>
+#include <unordered_set>
 
 enum class MeshStatus{
     Ready,
@@ -112,9 +113,25 @@ struct SceneNode {
     bool isVisible = true;
     bool effectiveVisible = true;
     bool isTransformDirty = true;
+    bool isPendingKill = false;
+
     Bbox worldBbox;
 
     size_t documentIndex = 0;
+
+    void addChild(SceneNode* child){
+        auto it = find(children.begin(), children.end(), child);
+        if (it == children.end()){
+            children.push_back(child);
+        }
+    }
+
+    void removeChild(SceneNode* child){
+        auto it = find(children.begin(), children.end(), child);
+        if (it != children.end()){
+            children.erase(it);
+        }
+    }
 };
 
 class SceneNodeUpdateList {
@@ -147,6 +164,10 @@ public:
     {
         return nodeActions.end();
     }
+    std::unordered_map<SceneNode*, UpdateListAction>::iterator erase(std::unordered_map<SceneNode*, UpdateListAction>::iterator it)
+    {
+        return nodeActions.erase(it);
+    }
     void clear()
     {
         nodeActions.clear();
@@ -170,6 +191,7 @@ struct CadDocument {
     std::vector<std::unique_ptr<SceneNode>> docNodes;
     
     std::unordered_map<SceneNodeId, SceneNode*> nodeLookup;
+    std::unordered_set<SceneNodeId> toKill;
 
     uint64_t numNodes = 0;
     uint32_t docId = 0;
@@ -182,15 +204,70 @@ struct CadDocument {
         SceneNode* nodeptr = node.get();
         docNodes.push_back(std::move(node));
         nodeLookup.emplace(nodeptr->id, nodeptr);
+
+        numNodes++;
         return nodeptr;
     }
 
     void setParent(SceneNode* node, SceneNode* parent){
-        // TODO
+        node->parent = parent;
+        if (parent){
+            parent->addChild(node);
+        }
+    }
+
+    void destroyNodeDry(SceneNode* node, SceneNodeUpdateList& nodeUpdateList){
+        for(auto& child: node->children){
+            destroyNodeDry(child, nodeUpdateList);
+        }
+        nodeUpdateList.removeNode(node);
+        node->isPendingKill = true;
+        toKill.emplace(node->id);
     }
 
     void destroyNode(SceneNode* node){
-        // TODO
+        if (!node) return;
+        // clean nodelookup
+        nodeLookup.erase(node->id);
+
+        // clean root
+        roots.erase(std::remove(roots.begin(), roots.end(), node), roots.end());
+
+        // clean parent's child
+        if (node->parent){
+            node->parent->removeChild(node);
+        }
+
+        // clean docNodes
+        auto it = std::find_if(docNodes.begin(), docNodes.end(), [node](const std::unique_ptr<SceneNode>& p) { return p.get() == node; });
+        if (it != docNodes.end()){
+            docNodes.erase(it);
+        }
+
+        numNodes--;
+    }
+
+    void flush(){
+        if (toKill.empty()) return;
+        auto pendingKill = [](const SceneNode* node){
+            return node->isPendingKill;
+        };
+
+        for(auto id: toKill){
+            nodeLookup.erase(id);
+        }
+        roots.erase(std::remove_if(roots.begin(), roots.end(), pendingKill), roots.end());
+
+        for (const auto& node : docNodes) {
+            if (node->isPendingKill) continue;
+
+            auto& children = node->children;
+            children.erase(std::remove_if(children.begin(), children.end(), pendingKill), children.end());
+        }
+        docNodes.erase(std::remove_if(docNodes.begin(), docNodes.end(), [](const auto& node){ return node->isPendingKill; }), docNodes.end());
+
+        numNodes = docNodes.size();
+        toKill.clear();
     }
 
     void clear() {
@@ -203,6 +280,7 @@ struct CadDocument {
         roots.clear();
         docNodes.clear();
         nodeLookup.clear();
+        toKill.clear();
         numNodes = 0;
     }
 };

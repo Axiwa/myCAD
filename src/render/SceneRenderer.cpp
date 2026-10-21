@@ -55,9 +55,9 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
 
         for(int i = 0; i < cadScene.docs.size(); i++){
             const auto& doc = cadScene.docs[i];
-            for (int j = 1; j < doc.docNodes.size(); j++) {
+            for (int j = 0; j < doc.docNodes.size(); j++) {
                 auto curr = doc.docNodes[j].get();
-                if (curr->effectiveVisible && curr->prototypeIndex.has_value()){
+                if (!curr->isPendingKill && curr->effectiveVisible && curr->prototypeIndex.has_value()){
                     auto index = curr->prototypeIndex.value();
 
                     if (index < meshBuffers[i].size()){
@@ -252,7 +252,7 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, CadScene& cadScene,
             curr = cadScene.docs[documentIndex].nodeLookup[nodeId];
         }
 
-        if (curr && curr->effectiveVisible && (!enableCulling || myCamera->inFrustum(curr->worldBbox)) && curr->prototypeIndex.has_value()){
+        if (curr && !curr->isPendingKill && curr->effectiveVisible && (!enableCulling || myCamera->inFrustum(curr->worldBbox)) && curr->prototypeIndex.has_value()){
             size_t prototypeIndex = curr->prototypeIndex.value();
 
             shaderProgram.use();
@@ -306,7 +306,7 @@ bool SceneRenderer::offscreenPicking(OrbitCamera* const myCamera, PickingFrameBu
             while (!m_stack.empty()) {
                 const SceneNode* curr = m_stack.top();
                 m_stack.pop();
-                if (curr->isVisible == false) {
+                if (curr->isVisible == false || curr->isPendingKill) {
                     continue;
                 }
 

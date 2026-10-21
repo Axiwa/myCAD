@@ -72,13 +72,11 @@ static std::string GetLabelName(const TDF_Label& label){
     }
 }
 
-SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, CadDocument& doc, SceneNode* parent, gp_Trsf& parentTrsf, const ResolvedStyle& parentcolor, int level, SceneNodeId& nodeId) {
+SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::handle<XCAFDoc_ColorTool>& colorTool, const TDF_Label& root, std::unordered_map<std::string, uint32_t>& partsmap, CadDocument& doc, SceneNode* parent, gp_Trsf& parentTrsf, const ResolvedStyle& parentcolor, int level) {
     SceneNode* node = doc.createNode();
-    node->colorStyle = parentcolor;
-    nodeId++;
-    node->id = nodeId;
+    node->colorStyle = parentcolor;   
+    node->parent = parent;
     node->documentIndex = doc.docId;
-    doc.nodeLookup[node->id] = node;
 
     TDF_Label occurrenceLabel = root;
     TDF_Label definitionLabel = root;
@@ -160,7 +158,7 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
         shapeTool->GetComponents(definitionLabel, components, false);
 
         for (int i = 1; i <= components.Length(); i++) {
-            node->children.push_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, doc, node, world, node->colorStyle, level+1, nodeId));
+            node->children.push_back(traverse(shapeTool, colorTool, components.Value(i), partsmap, doc, node, world, node->colorStyle, level+1));
         }
     }
     else {
@@ -208,6 +206,17 @@ SceneNode* traverse(const occ::handle<XCAFDoc_ShapeTool>& shapeTool, const occ::
             partsmap[prototype.labelEntry] = static_cast<uint32_t>(doc.prototypes.size());
             node->prototypeIndex = doc.prototypes.size();
             doc.prototypes.emplace_back(std::move(prototype));
+        }
+
+        // update world bbox
+        if (node->prototypeIndex.has_value()){
+            PartPrototype& prototype = doc.prototypes[node->prototypeIndex.value()];
+            if (prototype.meshStatus == MeshStatus::Ready){
+                Bbox nodebox = prototype.localBbox;
+                nodebox.applyTransform(node->worldTransform);
+                node->worldBbox = nodebox;
+                node->isTransformDirty = false;
+            }
         }
     }
 
@@ -272,13 +281,12 @@ bool StepXcafImporter::load(const std::filesystem::path& path, CadDocument& doc)
     std::unordered_map<std::string, uint32_t> prototypes;
     gp_Trsf trsf;
     ResolvedStyle color;
-    SceneNodeId nodeId = 0;
     for (NCollection_Sequence<TDF_Label>::Iterator it(aFreeShapes); it.More(); it.Next()) {
         const TDF_Label& root = it.Value();
-        SceneNode* node = traverse(shapeTool, colorTool, root, prototypes, doc, nullptr, trsf, color, 0, nodeId);
+        SceneNode* node = traverse(shapeTool, colorTool, root, prototypes, doc, nullptr, trsf, color, 0);
         doc.roots.push_back(node);
     }
-    doc.numNodes = nodeId;
+    doc.numNodes = doc.docNodes.size();
 
     std::cout << "--------------------------------" << std::endl;
     std::cout << "Prototypes: " << std::endl;

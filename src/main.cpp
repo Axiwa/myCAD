@@ -33,7 +33,7 @@
 
 bool isFaceMirror = false;
 bool isNodeMirror = false;
-bool isStreeTest = true;
+bool isStreeTest = false;
 bool enableInstance = true;
 bool enableCulling = false;
 
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
             test.numNodes++;
         }
     }
-    cadScene.docs.emplace_back(std::move(test));
+    cadScene.docs.push_back(std::move(test));
 
     Controller myWindow;
     glfwMakeContextCurrent(myWindow.GetWindow());

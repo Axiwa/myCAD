@@ -180,8 +180,11 @@ void SceneRenderer::renderScene(OrbitCamera* const myCamera, std::vector<std::ve
                     batch.key = renderItems[right].key;
                     batch.instanceCount = static_cast<GLsizei>(mats.size());
                     batch.uploadData(mats);
-
-                    renderBatches.emplace(batch.key, std::move(batch));
+                }
+                else{
+                    auto it = renderBatches.find(key);
+                    if (it != renderBatches.end())
+                        it->second.instanceCount = 0;
                 }
             }
         }

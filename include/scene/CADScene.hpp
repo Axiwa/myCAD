@@ -158,6 +158,9 @@ public:
 // list of scenenode
 struct CadDocument {
     CadDocument(uint32_t id): docId(id) {}
+    CadDocument(const CadDocument&) = delete;
+    CadDocument(CadDocument&&) = default;
+    CadDocument& operator=(const CadDocument&) = delete;
     std::filesystem::path sourcePath;
     occ::handle<TDocStd_Document> m_document;
 
@@ -170,11 +173,15 @@ struct CadDocument {
 
     uint64_t numNodes = 0;
     uint32_t docId = 0;
+    SceneNodeId nextNodeId = 1;
 
     SceneNode* createNode(){
         std::unique_ptr<SceneNode> node(new SceneNode());
+        node->id = nextNodeId++;
+
         SceneNode* nodeptr = node.get();
         docNodes.push_back(std::move(node));
+        nodeLookup.emplace(nodeptr->id, nodeptr);
         return nodeptr;
     }
 
@@ -195,11 +202,14 @@ struct CadDocument {
         }
         roots.clear();
         docNodes.clear();
+        nodeLookup.clear();
+        numNodes = 0;
     }
 };
 
 struct CadScene {
     std::vector<CadDocument> docs;
+    std::unordered_map<uint32_t, CadDocument*> docLookup; // for later use
 
     void getRuntimeNodes(std::vector<std::vector<SceneNode*>>& runtimeNodes){
         runtimeNodes.clear();

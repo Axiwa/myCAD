@@ -23,6 +23,7 @@
 #include "ui/ScenePanel.hpp"
 #include "profiler/profiler.hpp"
 #include "geometry/Design.hpp"
+#include "tools/helper.hpp"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
@@ -60,16 +61,18 @@ int main(int argc, char* argv[]) {
 
     CadDocument test(0);
     std::filesystem::path defaultModel = exePath / "data" / "step" / "linkrods.step";
-    std::string path = defaultModel.string();
+    std::string importpath = defaultModel.string();
+    static char inputBuffer[256] = "";
+
     if (argc > 1) {
-        path = argv[1];
-        std::cout << "Import path: " << path << std::endl;
+        importpath = argv[1];
+        std::cout << "Import path: " << importpath << std::endl;
     }
     else{
-        std::cout<<"Null import path, use default: " << path <<std::endl;
+        std::cout<<"Null import path, use default: " << importpath <<std::endl;
     }
 
-    if (!xcafImporter.load(path.c_str(), test)) {
+    if (!xcafImporter.load(importpath.c_str(), test)) {
         exit(1);
     }
     cadScene.docs.push_back(std::move(test));
@@ -357,7 +360,31 @@ int main(int argc, char* argv[]) {
             ImGui::SetNextWindowPos(ImVec2(0.0f, (float)height), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
             ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_Once);
             ImGui::Begin("Scene Info");
-            ImGui::Text("Hello Dear ImGui!");
+
+            ImGui::InputText("##input", inputBuffer, sizeof(inputBuffer), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::SameLine();
+            if (ImGui::Button("Import")) {
+                std::string input(inputBuffer);
+
+                auto l = input.find_first_not_of(" \t\r\n");
+                auto r = input.find_last_not_of(" \t\r\n");
+                if (l == std::string::npos)
+                    importpath = "";
+                else
+                    importpath = input.substr(l, r - l + 1);
+                
+                if (!importpath.empty()){
+                    CadDocument newdoc(cadScene.docs.size());
+                    if (xcafImporter.load(importpath.c_str(), newdoc)) {
+                        for (auto& node : newdoc.docNodes) {
+                            nodeUpdateList.addNode(node.get());
+                        }
+                        cadScene.docs.push_back(std::move(newdoc));
+                        sceneState.sceneStructureDirty = true;
+                    }
+                }
+            }
+
             ImGui::Checkbox("Instancing", &enableInstance);
             bool cullingChange = ImGui::Checkbox("Culling", &enableCulling);
             if (cullingChange) {
@@ -365,64 +392,7 @@ int main(int argc, char* argv[]) {
             }
             bool streeTestChange = ImGui::Checkbox("StressTest", &isStressTest);
             if (streeTestChange) {
-                    const int prototypeIndex = 1;
-                    const int docIndex = 0;
-                    auto& doc = cadScene.docs[docIndex];
-                    const auto prototype = doc.prototypes[prototypeIndex];
-                if (isStressTest){ // to add node with prototype 0
-                    const glm::dmat4 baseTransform = glm::dmat4(1.0f);
-                    auto colorStyle = ResolvedStyle();
-                    colorStyle.surfaceColor = glm::vec4(0.2f, 0.3f, 0.5f, 1.0f);
-                    const auto baseName = prototype.name;
-                    const auto baseEntry = prototype.labelEntry;
-
-                    uint64_t oriNum = test.numNodes + 1;
-                    uint64_t num = 256;
-                    // 以当前场景 world bbox 的中心为网格中心
-                    const glm::dvec3 gridCenter = sceneState.visibleBounds.valid()
-                        ? glm::dvec3(sceneState.visibleBounds.center())
-                        : glm::dvec3(0.0);
-                    const double halfExtent = (static_cast<double>(num) - 1.0) * 0.5;
-                    SceneNode* newroot = doc.createNode();
-                    newroot->name = "stress root";
-                    nodeUpdateList.addNode(newroot);
-                    doc.roots.push_back(newroot);
-                    for (uint64_t k = 0; k < num * num; k++) {
-                        const SceneNodeId i = oriNum + k;
-                        const double col = static_cast<double>(k / num) - halfExtent;
-                        const double row = static_cast<double>(k % num) - halfExtent;
-                        const glm::dmat4 offset = glm::translate(glm::dmat4(1), gridCenter + glm::dvec3(col, row, 0.0));
-                        SceneNode* newnode = doc.createNode();
-                        newnode->parent = newroot;
-                        newnode->occLabelEntry = baseEntry + "/" + std::to_string(i);
-                        newnode->name = baseName + "/" + std::to_string(i);
-                        newnode->localTransform = offset * baseTransform;
-                        newnode->worldTransform = newnode->localTransform;
-                        newnode->colorStyle = colorStyle;
-                        if (i % 2 == 0){
-                            newnode->worldTransform[0] = -newnode->worldTransform[0];
-                            newnode->colorStyle.surfaceColor = glm::vec4(0.5f, 0.2f, 0.3f, 1.0f);
-                        }
-                        newnode->prototypeIndex = prototypeIndex;
-                        
-                        Bbox nodebox = prototype.localBbox;
-                        nodebox.applyTransform(newnode->worldTransform);
-                        newnode->worldBbox = nodebox;
-                        newnode->isTransformDirty = false;
-                        newroot->children.push_back(newnode);
-                        nodeUpdateList.addNode(newnode);
-                    }
-                }
-                else{ // to remove node
-                    SceneNode* newroot = nullptr;
-                    for(auto& node: doc.docNodes){
-                        if (node->name == "stress root"){
-                            newroot = node.get();
-                            break;
-                        }
-                    }
-                    doc.destroyNodeDry(newroot, nodeUpdateList);
-                }
+                StressTest(isStressTest, cadScene, nodeUpdateList, sceneState);
                 sceneState.sceneStructureDirty = true;
             }
             ImGui::Text("Number of document: %zu", cadScene.docs.size());

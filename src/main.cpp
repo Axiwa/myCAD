@@ -378,12 +378,20 @@ int main(int argc, char* argv[]) {
 
                     uint64_t oriNum = test.numNodes + 1;
                     uint64_t num = 256;
+                    // 以当前场景 world bbox 的中心为网格中心
+                    const glm::dvec3 gridCenter = sceneState.visibleBounds.valid()
+                        ? glm::dvec3(sceneState.visibleBounds.center())
+                        : glm::dvec3(0.0);
+                    const double halfExtent = (static_cast<double>(num) - 1.0) * 0.5;
                     SceneNode* newroot = doc.createNode();
                     newroot->name = "stress root";
                     nodeUpdateList.addNode(newroot);
                     doc.roots.push_back(newroot);
-                    for (SceneNodeId i = oriNum; i < oriNum + num*num; i++) {
-                        const glm::dmat4 offset = glm::translate(glm::dmat4(1), glm::dvec3((i/num) * 1, (i % num) * 1, 0.0));
+                    for (uint64_t k = 0; k < num * num; k++) {
+                        const SceneNodeId i = oriNum + k;
+                        const double col = static_cast<double>(k / num) - halfExtent;
+                        const double row = static_cast<double>(k % num) - halfExtent;
+                        const glm::dmat4 offset = glm::translate(glm::dmat4(1), gridCenter + glm::dvec3(col, row, 0.0));
                         SceneNode* newnode = doc.createNode();
                         newnode->parent = newroot;
                         newnode->occLabelEntry = baseEntry + "/" + std::to_string(i);

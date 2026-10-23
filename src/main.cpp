@@ -202,6 +202,7 @@ int main(int argc, char* argv[]) {
 
                 if (pickedID > 0 && pickedID <= pickRegistry.size()) {
                     sceneState.selection = pickRegistry[pickedID - 1];
+                    sceneState.docSelection.reset();
                 }
                 else {
                     if (pickedID > pickRegistry.size()) {
@@ -209,6 +210,7 @@ int main(int argc, char* argv[]) {
                     }
                     pickedID = 0;
                     sceneState.selection.reset();
+                    sceneState.docSelection.reset();
                 }
             }
         }
@@ -436,6 +438,7 @@ int main(int argc, char* argv[]) {
 
         if (clickedUiBlank) {
             sceneState.selection.reset();
+            sceneState.docSelection.reset();
         }
 
         ImGui::Render();

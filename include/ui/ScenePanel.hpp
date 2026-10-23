@@ -65,7 +65,19 @@ public:
         for (int i = 0; i < cadScene.docs.size(); i++) {
         auto& doc = cadScene.docs[i];
             ImGui::PushID(i);
-            if (ImGui::TreeNode(doc.sourcePath.filename().string().c_str())) {
+            ImGuiTreeNodeFlags docflags = ImGuiTreeNodeFlags_OpenOnArrow  | ImGuiTreeNodeFlags_SpanAvailWidth;
+
+            if (state.docSelection == i) {
+                docflags |= ImGuiTreeNodeFlags_Selected;
+            }
+                
+            bool open = ImGui::TreeNodeEx(doc.sourcePath.filename().string().c_str(), docflags);
+            if (ImGui::IsItemClicked())
+            {
+                state.docSelection = i;
+                state.selection.reset();
+            }
+            if (open) {
                 for (auto& root : doc.roots) {
                     std::stack<std::pair<SceneNode*, bool>> m_stack;
                     m_stack.emplace(root, false);
@@ -110,6 +122,7 @@ public:
                             state.selection.emplace();
                             state.selection->documentIndex = i;
                             state.selection->nodeId = curr->id;
+                            state.docSelection.reset();
                         }
                         
                         if (open && !(flags & ImGuiTreeNodeFlags_NoTreePushOnOpen)) {

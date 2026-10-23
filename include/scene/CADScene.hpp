@@ -310,6 +310,7 @@ struct CadScene {
 
 struct SceneRuntimeState {
     std::optional<SceneSelection> selection;
+    std::optional<size_t> docSelection;
     Bbox visibleBounds;
     bool visibleBoundsDirty = true;
     bool sceneStructureDirty = true;
